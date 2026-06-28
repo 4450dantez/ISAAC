@@ -49,34 +49,51 @@ async function startBot() {
     // to reduce the chance of connection issues caused by an outdated version.
     const { version } = await fetchLatestBaileysVersion();
 
+    // Ask for a phone number BEFORE creating the socket, so there's no race
+    // between this prompt and Baileys generating a QR code. Only asked
+    // once, on first run, before any session exists.
+    let phoneNumber = null;
+    if (!state.creds.registered) {
+      const readline = require('readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      phoneNumber = await new Promise((resolve) => {
+        rl.question(
+          'Enter your WhatsApp number with country code (e.g. 15551234567), or press Enter to use QR instead: ',
+          (answer) => {
+            rl.close();
+            resolve(answer && answer.trim() ? answer.trim() : null);
+          }
+        );
+      });
+    }
+
     const sock = makeWASocket({
       version,
       auth: state,
       logger: logger.child ? logger.child({ module: 'baileys' }) : logger,
       // printQRInTerminal is deprecated in newer Baileys versions; we handle
       // QR rendering ourselves inside events/connection.js instead.
+      // defaultQueryTimeoutMs: undefined fixes a known Baileys bug where
+      // requestPairingCode() fails with "Connection Closed" (statusCode 428)
+      // because the default query timeout is too short for the pairing
+      // handshake. See WhiskeySockets/Baileys issue #1382 and #2008.
+      defaultQueryTimeoutMs: undefined,
+      // Pinning a specific browser string is another documented fix for
+      // the same 428 error, per WhiskeySockets/Baileys issue #1382.
+      browser: ['Windows', 'Chrome', '114.0.5735.198'],
     });
 
     // Persist updated credentials to disk every time Baileys refreshes them.
     sock.ev.on('creds.update', saveCreds);
 
-    // If there's no saved session yet, offer pairing-code login as an
-    // alternative to scanning the QR. Skipped automatically once
-    // state.creds.registered becomes true after a successful link.
-    if (!state.creds.registered) {
-      const readline = require('readline');
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      rl.question(
-        'Enter your WhatsApp number with country code (e.g. 15551234567), or press Enter to use QR instead: ',
-        async (phoneNumber) => {
-          rl.close();
-          if (phoneNumber && phoneNumber.trim()) {
-            const code = await sock.requestPairingCode(phoneNumber.trim());
-            logger.info(`Your pairing code: ${code}`);
-            logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
-          }
-        }
-      );
+    // Request the pairing code now that the socket exists, if the person
+    // chose to use one instead of scanning the QR.
+    if (phoneNumber) {
+      const code = await sock.requestPairingCode(phoneNumber);
+      console.log('\n========================================');
+      console.log(`   YOUR PAIRING CODE: ${code}`);
+      console.log('========================================\n');
+      logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
     }
 
     // Register all event listeners, passing startBot itself into the
