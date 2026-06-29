@@ -168,29 +168,34 @@ module.exports = [
   {
     name: 'vv',
     description: 'View a view-once message. Reply to a view-once message with .vv',
-    const { bot, forwardOrBroadCast, parsedJid } = require('../lib')
+    async execute(sock, msg) {
+      const jid = msg.key.remoteJid;
+      const ctx = msg.message?.extendedTextMessage?.contextInfo;
+      const quoted = ctx?.quotedMessage;
 
-bot(
-  {
-    pattern: 'vv ?(.*)',
-    fromMe: true,
-    desc: 'antiViewOnce',
-    type: 'whatsapp',
-  },
-  async (message, match) => {
-    if (
-      !message.reply_message.image &&
-      !message.reply_message.video &&
-      !message.reply_message.audio
-    ) {
-      return await message.send(
-        '*Example\n- reply to a vieOnce image, video or audio*\n- vv jid (optional)'
-      )
+      if (!quoted) {
+        return sock.sendMessage(jid, {
+          text: '❌ Reply to a view-once message with .vv'
+        }, { quoted: msg });
+      }
+
+      const viewOnce =
+        quoted.viewOnceMessage?.message ||
+        quoted.viewOnceMessageV2?.message ||
+        quoted.viewOnceMessageV2Extension?.message;
+
+      if (!viewOnce) {
+        return sock.sendMessage(jid, {
+          text: '❌ That is not a view-once message.'
+        }, { quoted: msg });
+      }
+
+      const type = Object.keys(viewOnce)[0];
+      const content = viewOnce[type];
+
+      await sock.sendMessage(jid, { [type]: content }, { quoted: msg });
     }
-    const [jid] = parsedJid(match)
-    await forwardOrBroadCast(jid || message.jid, message, { viewOnce: false })
-  }
-)
+  },
 
   // ── ONLINE ────────────────────────────────────────────────────────────────
   {
