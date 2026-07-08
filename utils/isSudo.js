@@ -21,7 +21,7 @@ function save(list) {
 
 function isSudo(msg) {
   if (isOwner(msg)) return true;
-  const senderJid = msg.key.participantPn || msg.key.participant || msg.key.remoteJidAlt || msg.key.remoteJid;
+  const senderJid = msg.key.participantPn || msg.key.participantAlt || msg.key.participant || msg.key.remoteJidAlt || msg.key.remoteJid;
   const senderNumber = senderJid.split('@')[0].split(':')[0];
   return load().includes(senderNumber);
 }

