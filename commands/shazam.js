@@ -5,19 +5,22 @@
  * then downloads and sends the full audio automatically.
  */
 
+const axios = require('axios');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const https = require('https');
-const yts = require('yt-search');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
-const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static') || 'ffmpeg';
+
+const ffmpegPath =
+  process.env.FFMPEG_PATH || require('ffmpeg-static') || 'ffmpeg';
 
 const execFileAsync = promisify(execFile);
 
 const AUDD_API_TOKEN = '1ad87635d6a7e6e1ad8c2ccbe503d097';
 const AUDD_ENDPOINT = 'https://api.audd.io/';
+const API = 'https://ravenn.site';
 
 function extractMediaTarget(msg) {
   const m = msg.message;
@@ -105,7 +108,6 @@ module.exports = {
 
     let tmpInput;
     let tmpAudio;
-    let downloadedSong;
 
     try {
       const { downloadMediaMessage } = require('@whiskeysockets/baileys');
@@ -155,7 +157,6 @@ module.exports = {
         'mp3',
         tmpAudio,
       ]);
-
       const form = new FormData();
 
       form.append('api_token', AUDD_API_TOKEN);
@@ -235,7 +236,8 @@ module.exports = {
         );
       }
 
-      // DOWNLOAD FULL SONG
+      // DOWNLOAD FULL SONG USING RAVENN API
+
       const query = `${r.title} ${r.artist}`;
 
       await sock.sendMessage(
@@ -245,49 +247,32 @@ module.exports = {
         },
         { quoted: msg }
       );
+      const search = await axios.get(
+        `${API}/search/yts?query=${encodeURIComponent(query)}`
+      );
 
-      const search = await yts(query);
+      const videos = search.data?.result;
 
-      const video = search.videos[0];
-
-      if (!video) {
-        throw new Error(
-          'Could not find the song on YouTube.'
-        );
+      if (!Array.isArray(videos) || videos.length === 0) {
+        throw new Error('Could not find the song on YouTube.');
       }
 
-      const outputTemplate = path.join(
-        tmpDir,
-        `shazam_song_${Date.now()}.%(ext)s`
+      const videoUrl = videos[0].url;
+
+      const download = await axios.get(
+        `${API}/download/audio?url=${encodeURIComponent(videoUrl)}`
       );
 
-      await execFileAsync('yt-dlp', [
-        '--js-runtimes',
-        'node',
-        '-x',
-        '--audio-format',
-        'mp3',
-        '--audio-quality',
-        '0',
-        '--no-playlist',
-        '-o',
-        outputTemplate,
-        video.url,
-      ]);
+      const audioUrl = download.data?.result;
 
-      downloadedSong = outputTemplate.replace(
-        '%(ext)s',
-        'mp3'
-      );
-
-      if (!fs.existsSync(downloadedSong)) {
-        throw new Error('Downloaded song not found.');
+      if (!audioUrl) {
+        throw new Error('Failed to download audio.');
       }
 
       await sock.sendMessage(
         jid,
         {
-          audio: fs.readFileSync(downloadedSong),
+          audio: { url: audioUrl },
           mimetype: 'audio/mpeg',
           fileName: `${r.title}.mp3`,
           ptt: false,
@@ -305,7 +290,7 @@ module.exports = {
         { quoted: msg }
       );
     } finally {
-      [tmpInput, tmpAudio, downloadedSong].forEach((f) => {
+      [tmpInput, tmpAudio].forEach((f) => {
         if (f && fs.existsSync(f)) {
           try {
             fs.unlinkSync(f);

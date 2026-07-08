@@ -77,96 +77,261 @@ module.exports = [
 
   // ── GEMINI ──────────────────────────────────────────────────────────────────
   {
-    name: 'gemini',
-    description: 'Ask Google Gemini AI. Usage: .gemini your question',
-    async execute(sock, msg, args) {
-      const jid = msg.key.remoteJid;
-      const prompt = args.join(' ');
-      if (!prompt) return sock.sendMessage(jid, { text: '❌ Usage: .gemini your question' }, { quoted: msg });
+  name: 'gemini',
+  description: 'Ask Gemini AI. Usage: .gemini your question',
 
-      await sock.sendMessage(jid, { text: '🤖 Thinking...' }, { quoted: msg });
+  async execute(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const prompt = args.join(' ').trim();
 
-      try {
-        const res = await httpsPost(
-          'generativelanguage.googleapis.com',
-          `/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-          { 'Content-Type': 'application/json' },
-          { contents: [{ parts: [{ text: prompt }] }] }
-        );
-
-        const reply = res?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!reply) throw new Error('No response');
-
-        await sock.sendMessage(jid, {
-          text: `🤖 *Gemini AI*\n\n${reply}`
-        }, { quoted: msg });
-      } catch (e) {
-        await sock.sendMessage(jid, { text: '❌ Gemini error: ' + e.message }, { quoted: msg });
-      }
+    if (!prompt) {
+      return sock.sendMessage(
+        jid,
+        { text: '❌ Usage: .gemini your question' },
+        { quoted: msg }
+      );
     }
-  },
+
+    await sock.sendMessage(
+      jid,
+      { text: '🤖 Gemini is thinking...' },
+      { quoted: msg }
+    );
+
+    try {
+      const encoded = encodeURIComponent(prompt);
+
+      https.get(`https://ravenn.site/ai/gemini?q=${encoded}`, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', async () => {
+          try {
+            const json = JSON.parse(data);
+
+            if (!json.status) {
+              throw new Error(json.error || 'API request failed');
+            }
+
+            const reply = json.result
+              .replace(/Keith AI/gi, 'ISAAC AI')
+              .replace(/Keithkeizzah/gi, 'ISAAC');
+
+            await sock.sendMessage(
+              jid,
+              {
+                text: `🤖 *Gemini AI*\n\n${reply}`
+              },
+              { quoted: msg }
+            );
+
+          } catch (err) {
+            await sock.sendMessage(
+              jid,
+              {
+                text: `❌ Gemini error: ${err.message}`
+              },
+              { quoted: msg }
+            );
+          }
+        });
+
+      }).on('error', async (err) => {
+        await sock.sendMessage(
+          jid,
+          {
+            text: `❌ Gemini error: ${err.message}`
+          },
+          { quoted: msg }
+        );
+      });
+
+    } catch (err) {
+      await sock.sendMessage(
+        jid,
+        {
+          text: `❌ Gemini error: ${err.message}`
+        },
+        { quoted: msg }
+      );
+    }
+  }
+},
 
   // ── GROQ ────────────────────────────────────────────────────────────────────
   {
-    name: 'groq',
-    description: 'Ask Groq AI (llama). Usage: .groq your question',
-    async execute(sock, msg, args) {
-      const jid = msg.key.remoteJid;
-      const prompt = args.join(' ');
-      if (!prompt) return sock.sendMessage(jid, { text: '❌ Usage: .groq your question' }, { quoted: msg });
+  name: 'groq',
+  description: 'Ask Groq AI. Usage: .groq your question',
 
-      await sock.sendMessage(jid, { text: '⚡ Groq is thinking...' }, { quoted: msg });
+  async execute(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const prompt = args.join(' ').trim();
 
-      try {
-        const res = await httpsPost(
-          'api.groq.com',
-          '/openai/v1/chat/completions',
-          { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-          { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }
-        );
-
-        const reply = res?.choices?.[0]?.message?.content;
-        if (!reply) throw new Error('No response');
-
-        await sock.sendMessage(jid, {
-          text: `⚡ *Groq AI*\n\n${reply}`
-        }, { quoted: msg });
-      } catch (e) {
-        await sock.sendMessage(jid, { text: '❌ Groq error: ' + e.message }, { quoted: msg });
-      }
+    if (!prompt) {
+      return sock.sendMessage(
+        jid,
+        { text: '❌ Usage: .groq your question' },
+        { quoted: msg }
+      );
     }
-  },
+
+    await sock.sendMessage(
+      jid,
+      { text: '⚡ Groq is thinking...' },
+      { quoted: msg }
+    );
+
+    try {
+      const encoded = encodeURIComponent(prompt);
+
+      https.get(`https://ravenn.site/ai/gpt?q=${encoded}`, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', async () => {
+          try {
+            const json = JSON.parse(data);
+
+            if (!json.status) {
+              throw new Error(json.error || 'API request failed');
+            }
+
+            const reply = json.result
+              .replace(/Keith AI/gi, 'ISAAC AI')
+              .replace(/Keithkeizzah/gi, 'ISAAC');
+
+            await sock.sendMessage(
+              jid,
+              {
+                text: `⚡ *Groq AI*\n\n${reply}`
+              },
+              { quoted: msg }
+            );
+
+          } catch (err) {
+            await sock.sendMessage(
+              jid,
+              {
+                text: `❌ Groq error: ${err.message}`
+              },
+              { quoted: msg }
+            );
+          }
+        });
+
+      }).on('error', async (err) => {
+        await sock.sendMessage(
+          jid,
+          {
+            text: `❌ Groq error: ${err.message}`
+          },
+          { quoted: msg }
+        );
+      });
+
+    } catch (err) {
+      await sock.sendMessage(
+        jid,
+        {
+          text: `❌ Groq error: ${err.message}`
+        },
+        { quoted: msg }
+      );
+    }
+  }
+},
 
   // ── GPT (uses Groq under the hood — free) ───────────────────────────────────
   {
-    name: 'gpt',
-    description: 'Ask GPT-style AI. Usage: .gpt your question',
-    async execute(sock, msg, args) {
-      const jid = msg.key.remoteJid;
-      const prompt = args.join(' ');
-      if (!prompt) return sock.sendMessage(jid, { text: '❌ Usage: .gpt your question' }, { quoted: msg });
+  name: 'gpt',
+  description: 'Ask GPT AI. Usage: .gpt your question',
 
-      await sock.sendMessage(jid, { text: '🧠 GPT is thinking...' }, { quoted: msg });
+  async execute(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const prompt = args.join(' ').trim();
 
-      try {
-        const res = await httpsPost(
-          'api.groq.com',
-          '/openai/v1/chat/completions',
-          { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-          { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }
-        );
-
-        const reply = res?.choices?.[0]?.message?.content;
-        if (!reply) throw new Error('No response');
-
-        await sock.sendMessage(jid, {
-          text: `🧠 *GPT AI*\n\n${reply}`
-        }, { quoted: msg });
-      } catch (e) {
-        await sock.sendMessage(jid, { text: '❌ GPT error: ' + e.message }, { quoted: msg });
-      }
+    if (!prompt) {
+      return sock.sendMessage(
+        jid,
+        { text: '❌ Usage: .gpt your question' },
+        { quoted: msg }
+      );
     }
-  },
+
+    await sock.sendMessage(
+      jid,
+      { text: '🧠 GPT is thinking...' },
+      { quoted: msg }
+    );
+
+    try {
+      const encoded = encodeURIComponent(prompt);
+
+      https.get(`https://ravenn.site/ai/gpt?q=${encoded}`, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', async () => {
+          try {
+            const json = JSON.parse(data);
+
+            if (!json.status) {
+              throw new Error(json.error || 'API request failed');
+            }
+
+            const reply = json.result
+              .replace(/Keith AI/gi, 'ISAAC AI')
+              .replace(/Keithkeizzah/gi, 'ISAAC');
+
+            await sock.sendMessage(
+              jid,
+              {
+                text: `🧠 *GPT AI*\n\n${reply}`
+              },
+              { quoted: msg }
+            );
+
+          } catch (err) {
+            await sock.sendMessage(
+              jid,
+              {
+                text: `❌ GPT error: ${err.message}`
+              },
+              { quoted: msg }
+            );
+          }
+        });
+
+      }).on('error', async (err) => {
+        await sock.sendMessage(
+          jid,
+          {
+            text: `❌ GPT error: ${err.message}`
+          },
+          { quoted: msg }
+        );
+      });
+
+    } catch (err) {
+      await sock.sendMessage(
+        jid,
+        {
+          text: `❌ GPT error: ${err.message}`
+        },
+        { quoted: msg }
+      );
+    }
+  }
+},
 {
   name: 'worm',
   aliases: ['wormgpt', 'wgpt', 'dark', 'darkgpt'],

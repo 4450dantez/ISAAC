@@ -1,96 +1,97 @@
+const axios = require("axios");
 const yts = require("yt-search");
-const { execFile } = require("child_process");
-const { promisify } = require("util");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
 
-const execFileAsync = promisify(execFile);
-const ytdlp = require("youtube-dl-exec");
-const YTDLP_BIN = ytdlp.constants.YOUTUBE_DL_PATH;
+const API = "https://ravenn.site";
 
 module.exports = {
   name: "play",
   description: "Search and download audio from YouTube",
 
-  execute: async (sock, msg, args) => {
+  async execute(sock, msg, args) {
     const chatId = msg.key.remoteJid;
-    const query = args.join(" ");
-
-    console.log("[PLAY] Query:", query);
+    const query = args.join(" ").trim();
 
     if (!query) {
-      return await sock.sendMessage(chatId, {
-        text: "🎵 Example: .play calm down"
-      });
+      return await sock.sendMessage(
+        chatId,
+        {
+          text: "🎵 *ISAAC-MD PLAY*\n\nExample:\n.play Shape of You"
+        },
+        { quoted: msg }
+      );
     }
 
-    let outputFile = null;
+    let statusMsg;
 
     try {
-      console.log("[PLAY] Searching YouTube...");
-
-      const search = await yts(query);
-      const video = search.videos[0];
-
-      console.log("[PLAY] Video found:", video?.title);
-
-      if (!video) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ No results found"
-        });
-      }
-
-      await sock.sendMessage(chatId, {
-        text: `🎧 Downloading:\n*${video.title}*`
-      });
-
-      const outputTemplate = path.join(
-        os.tmpdir(),
-        `play_${Date.now()}.%(ext)s`
+      // Searching...
+      statusMsg = await sock.sendMessage(
+        chatId,
+        {
+          text: "🔍 Searching..."
+        },
+        { quoted: msg }
       );
 
-      console.log("[PLAY] Running yt-dlp...");
+      let videoUrl;
+      let videoTitle;
 
-      const { stdout, stderr } = await execFileAsync(YTDLP_BIN, [
-        "-x",
-        "--audio-format", "mp3",
-        "--audio-quality", "0",
-        "--no-playlist",
-        "-o", outputTemplate,
-        video.url
-      ]);
+      // YouTube link
+      if (/youtu\.be|youtube\.com/i.test(query)) {
+        videoUrl = query;
 
-      if (stderr) {
-        console.log("[yt-dlp stderr]", stderr);
+        const info = await yts(query);
+
+        if (!info) {
+          return await sock.sendMessage(chatId, {
+            text: "❌ Invalid YouTube link.",
+            edit: statusMsg.key
+          });
+        }
+
+        videoTitle = info.title || "YouTube Audio";
+      } else {
+        // Search by name
+        const search = await axios.get(
+          `${API}/search/yts?query=${encodeURIComponent(query)}`
+        );
+
+        const videos = search.data?.result;
+
+        if (!Array.isArray(videos) || videos.length === 0) {
+          return await sock.sendMessage(chatId, {
+            text: "❌ No results found.",
+            edit: statusMsg.key
+          });
+        }
+
+        videoUrl = videos[0].url;
+        videoTitle = videos[0].title;
       }
 
-      console.log("[yt-dlp stdout]", stdout);
+      // Downloading...
+      await sock.sendMessage(chatId, {
+        text: `🎧 Downloading...\n\n*${videoTitle}*`,
+        edit: statusMsg.key
+      });
 
-      outputFile = outputTemplate.replace("%(ext)s", "mp3");
+      const download = await axios.get(
+        `${API}/download/audio?url=${encodeURIComponent(videoUrl)}`
+      );
 
-      console.log("[PLAY] Output file:", outputFile);
+      const audioUrl = download.data?.result;
 
-      if (!fs.existsSync(outputFile)) {
-        throw new Error(`Audio file not found: ${outputFile}`);
+      if (!audioUrl) {
+        throw new Error("Failed to retrieve audio.");
       }
 
-      const stats = fs.statSync(outputFile);
+      const fileName = `${videoTitle}.mp3`.replace(/[\\/:*?"<>|]/g, "");
 
-      console.log("[PLAY] File size:", stats.size);
-
-      if (stats.size === 0) {
-        throw new Error("Downloaded file is empty");
-      }
-
-      const audioBuffer = fs.readFileSync(outputFile);
-      const fileName = `${video.title}.mp3`;
-
-      // Send as playable audio first
+      // Playable audio
       await sock.sendMessage(
         chatId,
         {
-          audio: audioBuffer,
+          audio: { url: audioUrl },
           mimetype: "audio/mpeg",
           fileName,
           ptt: false
@@ -98,39 +99,39 @@ module.exports = {
         { quoted: msg }
       );
 
-      console.log("[PLAY] Audio sent successfully");
-
-      // Then send the exact same file again as a downloadable document
+      // Downloadable document
       await sock.sendMessage(
         chatId,
         {
-          document: audioBuffer,
+          document: { url: audioUrl },
           mimetype: "audio/mpeg",
           fileName
         },
         { quoted: msg }
       );
 
-      console.log("[PLAY] Document sent successfully");
+      // Success
+      await sock.sendMessage(chatId, {
+        text: `✅ Successfully downloaded\n\n🎵 *${videoTitle}*`,
+        edit: statusMsg.key
+      });
 
     } catch (err) {
       console.error("[PLAY ERROR]", err);
 
-      await sock.sendMessage(
-        chatId,
-        {
-          text: `❌ Failed to play song.\n\n${err.message}`
-        },
-        { quoted: msg }
-      );
-    } finally {
-      if (outputFile && fs.existsSync(outputFile)) {
-        try {
-          fs.unlinkSync(outputFile);
-          console.log("[PLAY] Temporary file deleted");
-        } catch (e) {
-          console.log("[PLAY] Cleanup error:", e);
-        }
+      if (statusMsg) {
+        await sock.sendMessage(chatId, {
+          text: `❌ Failed to play song.\n\n${err.message}`,
+          edit: statusMsg.key
+        });
+      } else {
+        await sock.sendMessage(
+          chatId,
+          {
+            text: `❌ Failed to play song.\n\n${err.message}`
+          },
+          { quoted: msg }
+        );
       }
     }
   }

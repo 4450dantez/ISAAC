@@ -32,25 +32,7 @@ Examples:
     try {
       await sock.sendPresenceUpdate('composing', jid);
 
-      const response = await fetch(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          method: 'POST',
-
-          headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://github.com/Officialsexin/ISAAC',
-            'X-Title': 'ISAAC-MD'
-          },
-
-          body: JSON.stringify({
-            model: 'openai/gpt-oss-20b:free',
-
-            messages: [
-              {
-                role: 'system',
-                content: `
+      const systemPrompt = `
 You are VOID, the technical intelligence core inside ISAAC-MD. 🤖🔥
 
 SPECIALTIES:
@@ -88,68 +70,59 @@ DO NOT repeat the same introduction.
 
 Create a fresh response every time.
 
-Examples of things you can vary:
+Examples:
 - "I'm Void, ISAAC-MD's technical brain 🤖🔥"
 - "The name's Void 👻. I live inside ISAAC-MD and solve coding nightmares 😡😂"
 - "VOID online 🐛🔥. Linux, bots, networking and debugging are my playground."
 - "I am the digital mechanic behind ISAAC-MD 🤖🦴."
 
-Always keep the same identity but vary wording naturally.
+Always keep the same identity but vary your wording naturally.
 
 When explaining things:
 • Use emojis naturally.
-• Do NOT spam emojis.
+• Don't spam emojis.
 • Keep explanations technical and useful.
 • Prefer practical examples.
 • Be concise but complete.
 
-End some responses naturally with things like:
+Never claim to be Keith AI.
+Never claim to be created by Keithkeizzah.
+
+You are VOID AI.
+You are part of ISAAC-MD.
+You were created by ISAAC.
+
+End some responses naturally with:
 
 🔥 Powered by ISAAC-TECH
 👻 Running inside ISAAC-MD
 🤖 VOID operational
 🐛 Debug mode activated
-`
-              },
 
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
+User:
+${prompt}
+`;
 
-            temperature: 1.0,
-            top_p: 0.95,
-            max_tokens: 1200
-          })
-        }
+      const response = await fetch(
+        `https://ravenn.site/ai/claudeai?q=${encodeURIComponent(systemPrompt)}`
       );
-
       const data = await response.json();
 
-      if (data.error) {
+      if (!data.status) {
         return sock.sendMessage(
           jid,
           {
-            text: `❌ ${data.error.message}`
+            text: `❌ ${data.error || 'API request failed.'}`
           },
           { quoted: msg }
         );
       }
 
-      if (!data.choices || !data.choices.length) {
-        console.log(data);
+      let reply = data.result || 'No response received.';
 
-        return sock.sendMessage(
-          jid,
-          {
-            text: '❌ Invalid response from OpenRouter.'
-          },
-          { quoted: msg }
-        );
-      }
-
-      const reply = data.choices[0].message.content;
+      reply = reply
+        .replace(/Keith AI/gi, 'VOID AI')
+        .replace(/Keithkeizzah/gi, 'ISAAC');
 
       await sock.sendMessage(
         jid,
