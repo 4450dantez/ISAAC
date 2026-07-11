@@ -1,15 +1,12 @@
 /**
  * commands/song.js
  * ------------------
- * Downloads a song from YouTube using youtube-dl-exec (bundles its own
- * yt-dlp binary via npm postinstall). Works on Termux and Heroku with
- * no manual setup beyond `npm install` — the binary comes with git push.
+ * Downloads a song from YouTube using the Keith API. Centralized via
+ * config/apis.js — update KEITH_BASE there if this API ever changes.
  */
-
+const axios = require('axios');
 const yts = require('yt-search');
-const youtubedl = require('youtube-dl-exec');
-const fs = require('fs');
-const path = require('path');
+const { KEITH_BASE } = require('../config/apis');
 
 module.exports = {
   name: 'song',
@@ -33,35 +30,20 @@ module.exports = {
 
       await sock.sendMessage(jid, { text: `⏳ Downloading: ${video.title} (${video.timestamp})` }, { quoted: msg });
 
-      const filePath = path.join(__dirname, `${Date.now()}.mp3`);
-      const url = `https://www.youtube.com/watch?v=${video.videoId}`;
+      const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+      const download = await axios.get(`${KEITH_BASE}/download/ytmp3?url=${encodeURIComponent(videoUrl)}`);
+      const audioUrl = download.data?.result;
 
-      await youtubedl(url, {
-        extractAudio: true,
-        audioFormat: 'mp3',
-        output: filePath,
-        format: 'bestaudio',
-      });
-
-      if (!fs.existsSync(filePath)) {
-        return sock.sendMessage(jid, { text: '❌ Download failed' }, { quoted: msg });
-      }
-
-      const buffer = fs.readFileSync(filePath);
-
-      if (buffer.length < 1000) {
-        fs.unlinkSync(filePath);
-        return sock.sendMessage(jid, { text: '❌ Empty audio file' }, { quoted: msg });
+      if (!audioUrl) {
+        throw new Error('Failed to retrieve audio.');
       }
 
       await sock.sendMessage(jid, {
-        audio: buffer,
+        audio: { url: audioUrl },
         mimetype: 'audio/mpeg',
-        fileName: `${video.title}.mp3`,
+        fileName: `${video.title}.mp3`.replace(/[\\/:*?"<>|]/g, ''),
         caption: `🎵 *${video.title}*\n⏱ ${video.timestamp} | 👁 ${video.views}`
       }, { quoted: msg });
-
-      fs.unlinkSync(filePath);
     } catch (e) {
       await sock.sendMessage(jid, { text: '❌ Song download failed: ' + e.message }, { quoted: msg });
     }

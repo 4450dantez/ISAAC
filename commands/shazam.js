@@ -20,7 +20,8 @@ const execFileAsync = promisify(execFile);
 
 const AUDD_API_TOKEN = '1ad87635d6a7e6e1ad8c2ccbe503d097';
 const AUDD_ENDPOINT = 'https://api.audd.io/';
-const API = 'https://ravenn.site';
+const { KEITH_BASE } = require('../config/apis');
+const API = KEITH_BASE;
 
 function extractMediaTarget(msg) {
   const m = msg.message;

@@ -1,6 +1,7 @@
 const axios = require("axios");
 
-const API = "https://ravenn.site/football/news";
+const { KEITH_BASE } = require('../config/apis');
+const API = `${KEITH_BASE}/football/news`;
 
 module.exports = {
   name: "news",

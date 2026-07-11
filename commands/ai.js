@@ -12,6 +12,7 @@ require('dotenv').config();
 const GEMINI_KEY = process.env.GEMINI_KEY;
 const GROQ_KEY = process.env.GROQ_KEY;
 const { askUncensored } = require('../lib/wormgpt');
+const { KEITH_BASE } = require('../config/apis');
 
 const wormgptSessions = new Map();
 
@@ -101,7 +102,7 @@ module.exports = [
     try {
       const encoded = encodeURIComponent(prompt);
 
-      https.get(`https://ravenn.site/ai/gemini?q=${encoded}`, (res) => {
+      https.get(`${KEITH_BASE}/ai/gemini?q=${encoded}`, (res) => {
         let data = '';
 
         res.on('data', (chunk) => {
@@ -273,7 +274,7 @@ module.exports = [
     try {
       const encoded = encodeURIComponent(prompt);
 
-      https.get(`https://ravenn.site/ai/gpt?q=${encoded}`, (res) => {
+      https.get(`${KEITH_BASE}/ai/gpt?q=${encoded}`, (res) => {
         let data = '';
 
         res.on('data', (chunk) => {

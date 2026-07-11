@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { KEITH_BASE } = require('../config/apis');
 
 module.exports = {
   name: "playersearch",
@@ -28,7 +29,7 @@ module.exports = {
       );
 
       const { data } = await axios.get(
-        `https://ravenn.site/sport/playersearch?q=${encodeURIComponent(query)}`
+        `${KEITH_BASE}/sport/playersearch?q=${encodeURIComponent(query)}`
       );
 
       if (!data.status || !data.result) {

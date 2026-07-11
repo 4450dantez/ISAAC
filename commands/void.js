@@ -1,38 +1,8 @@
 // commands/void.js
 
-module.exports = {
-  name: 'void',
-  aliases: ['v', 'voidai'],
-  description: 'Advanced technical AI assistant',
+const { askUncensored } = require('../lib/wormgpt');
 
-  async execute(sock, msg, args) {
-    const jid = msg.key.remoteJid;
-    const prompt = args.join(' ').trim();
-
-    if (!prompt) {
-      return sock.sendMessage(
-        jid,
-        {
-          text: `🌌 *VOID AI*
-
-Usage:
-.void <question>
-
-Examples:
-.void good morning
-.void who are you
-.void explain Linux permissions
-.void write a WhatsApp command
-.void fix this Node.js error`
-        },
-        { quoted: msg }
-      );
-    }
-
-    try {
-      await sock.sendPresenceUpdate('composing', jid);
-
-      const systemPrompt = `
+const SYSTEM_PROMPT = `
 You are VOID, the technical intelligence core inside ISAAC-MD. 🤖🔥
 
 SPECIALTIES:
@@ -70,59 +40,63 @@ DO NOT repeat the same introduction.
 
 Create a fresh response every time.
 
-Examples:
+Examples of things you can vary:
 - "I'm Void, ISAAC-MD's technical brain 🤖🔥"
 - "The name's Void 👻. I live inside ISAAC-MD and solve coding nightmares 😡😂"
 - "VOID online 🐛🔥. Linux, bots, networking and debugging are my playground."
 - "I am the digital mechanic behind ISAAC-MD 🤖🦴."
 
-Always keep the same identity but vary your wording naturally.
+Always keep the same identity but vary wording naturally.
 
 When explaining things:
 • Use emojis naturally.
-• Don't spam emojis.
+• Do NOT spam emojis.
 • Keep explanations technical and useful.
 • Prefer practical examples.
 • Be concise but complete.
 
-Never claim to be Keith AI.
-Never claim to be created by Keithkeizzah.
-
-You are VOID AI.
-You are part of ISAAC-MD.
-You were created by ISAAC.
-
-End some responses naturally with:
+End some responses naturally with things like:
 
 🔥 Powered by ISAAC-TECH
 👻 Running inside ISAAC-MD
 🤖 VOID operational
 🐛 Debug mode activated
-
-User:
-${prompt}
 `;
 
-      const response = await fetch(
-        `https://ravenn.site/ai/claudeai?q=${encodeURIComponent(systemPrompt)}`
+module.exports = {
+  name: 'void',
+  aliases: ['v', 'voidai'],
+  description: 'Advanced technical AI assistant',
+
+  async execute(sock, msg, args) {
+    const jid = msg.key.remoteJid;
+    const prompt = args.join(' ').trim();
+
+    if (!prompt) {
+      return sock.sendMessage(
+        jid,
+        {
+          text: `🌌 *VOID AI*
+
+Usage:
+.void <question>
+
+Examples:
+.void good morning
+.void who are you
+.void explain Linux permissions
+.void write a WhatsApp command
+.void fix this Node.js error`
+        },
+        { quoted: msg }
       );
-      const data = await response.json();
+    }
 
-      if (!data.status) {
-        return sock.sendMessage(
-          jid,
-          {
-            text: `❌ ${data.error || 'API request failed.'}`
-          },
-          { quoted: msg }
-        );
-      }
+    try {
+      await sock.sendPresenceUpdate('composing', jid);
 
-      let reply = data.result || 'No response received.';
-
-      reply = reply
-        .replace(/Keith AI/gi, 'VOID AI')
-        .replace(/Keithkeizzah/gi, 'ISAAC');
+      const combined = `${SYSTEM_PROMPT}\n\nUser: ${prompt}\n\nVOID:`;
+      const reply = await askUncensored(combined);
 
       await sock.sendMessage(
         jid,
