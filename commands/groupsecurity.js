@@ -131,7 +131,47 @@ module.exports = [
     }
   },
 
-  // ── GSTATUS — toggle whether bot reacts to group status updates ─────────────
-  makeToggleCommand('gstatus', 'gstatus', 'Group status notifications', '📊'),
+  // ── GSTATUS — post a replied photo/video as the bot's status, shared with this group ──
+  {
+    name: 'gstatus',
+    description: "Post a replied photo/video as the bot's status, visible to this group. Usage: reply to media with .gstatus",
+    async execute(sock, msg) {
+      const jid = msg.key.remoteJid;
+
+      if (!jid.endsWith('@g.us')) {
+        return sock.sendMessage(jid, { text: '❌ This command only works in groups.' }, { quoted: msg });
+      }
+
+      const ctx = msg.message?.extendedTextMessage?.contextInfo;
+      const quoted = ctx?.quotedMessage;
+
+      if (!quoted?.imageMessage && !quoted?.videoMessage) {
+        return sock.sendMessage(jid, { text: '❌ Reply to a photo or video with .gstatus' }, { quoted: msg });
+      }
+
+      try {
+        const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+        const media = await downloadMediaMessage(
+          { message: quoted, key: { remoteJid: jid, id: ctx.stanzaId, participant: ctx.participant } },
+          'buffer',
+          {}
+        );
+
+        const metadata = await sock.groupMetadata(jid);
+        const statusJidList = metadata.participants.map(p => p.phoneNumber || p.id);
+
+        const type = quoted.imageMessage ? 'image' : 'video';
+        await sock.sendMessage(
+          'status@broadcast',
+          { [type]: media, caption: quoted[`${type}Message`]?.caption || '' },
+          { statusJidList }
+        );
+
+        await sock.sendMessage(jid, { text: '✅ Posted to status, visible to this group (expires in 24h).' }, { quoted: msg });
+      } catch (e) {
+        await sock.sendMessage(jid, { text: '❌ Failed to post status: ' + e.message }, { quoted: msg });
+      }
+    }
+  },
 
 ];
