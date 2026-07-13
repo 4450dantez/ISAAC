@@ -19,6 +19,11 @@
     }
   },
   "env": {
+    "HEROKU_APP_NAME": {
+      "description": "The name of this Heroku app the one you entered at the top. Required if you want to use .update/.updatenow.",
+      "value": "",
+      "required": true
+    },
     "SESSION_ID": {
       "description": "Your WhatsApp session string, generated at https://kingpin-sjlx.onrender.com (QR CODE or PAIR CODE)",
       "value": "",
@@ -27,7 +32,7 @@
     "PREFIX": {
       "description": "Command prefix for the bot",
       "value": ".",
-      "required": false
+      "required": true
     },
     "BOT_NAME": {
       "description": "Display name for the bot",
@@ -42,6 +47,11 @@
     "OWNER_NUMBER": {
       "description": "Your WhatsApp number with country code, no + or spaces (e.g. 254754574642)",
       "value": "254754574642",
+      "required": true
+    },
+    "HEROKU_API_KEY": {
+      "description": "Your Heroku account API key (dashboard.heroku.com/account → API Key). Required if you want to use .update/.updatenow to check and trigger redeploys from WhatsApp.",
+      "value": "",
       "required": true
     },
     "STICKER_NAME": {
