@@ -230,7 +230,7 @@ module.exports = [
           // boots with the correct DEPLOYED_COMMIT already set. Heroku
           // tarballs have no .git folder, so this is the only reliable
           // way to know what commit is actually running.
-          await fetch(`https://api.heroku.com/apps/${appName}/config-vars`, {
+          const configRes = await fetch(`https://api.heroku.com/apps/${appName}/config-vars`, {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -239,6 +239,11 @@ module.exports = [
             },
             body: JSON.stringify({ DEPLOYED_COMMIT: latestSha }),
           });
+
+          if (!configRes.ok) {
+            const errText = await configRes.text();
+            throw new Error(`Failed to set DEPLOYED_COMMIT config var (${configRes.status}): ${errText}`);
+          }
 
           await sock.sendMessage(jid, { text: `⏳ Triggering a new Heroku build from commit \`${latestSha.slice(0, 7)}\`...` }, { quoted: msg });
 
