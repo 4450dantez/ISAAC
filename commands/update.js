@@ -55,32 +55,26 @@ async function githubApi(endpoint) {
   return res.json();
 }
 
-const DEPLOYED_COMMIT_PATH = path.join(root, '.deployed-commit');
-
 /**
  * Compares the deployed commit against the latest on GitHub.
  *
- * The deployed commit is captured automatically at build time (see
- * scripts/write-commit.js, run via the "heroku-postbuild" npm script) —
- * no manual `heroku labs:enable` step required from the deployer.
+ * The deployed commit is tracked via a DEPLOYED_COMMIT config var, set
+ * directly by .updatenow right before it triggers a build (see below).
+ * We can't detect this after the fact by reading .git at build time,
+ * because Heroku builds from a GitHub tarball (no .git folder present),
+ * so .updatenow tells Heroku what it's deploying instead of guessing.
+ *
+ * Falls back to HEROKU_SLUG_COMMIT for anyone who already has
+ * runtime-dyno-metadata enabled from before this change.
  */
 async function checkHerokuUpdate() {
-  let currentCommit = null;
-
-  if (fs.existsSync(DEPLOYED_COMMIT_PATH)) {
-    currentCommit = fs.readFileSync(DEPLOYED_COMMIT_PATH, 'utf8').trim();
-  }
-
-  // Fallback for anyone who already has runtime-dyno-metadata enabled from before.
-  if (!currentCommit) {
-    currentCommit = process.env.HEROKU_SLUG_COMMIT;
-  }
+  const currentCommit = process.env.DEPLOYED_COMMIT || process.env.HEROKU_SLUG_COMMIT;
 
   if (!currentCommit) {
     throw new Error(
-      'Could not determine the currently deployed commit. This usually means the bot ' +
-      'hasn\'t been rebuilt since this feature was added — run .updatenow once, or ' +
-      '`git push heroku main`, and this will start working on the next build.'
+      'Could not determine the currently deployed commit yet. Run .updatenow once — ' +
+      'it records the deployed commit as part of triggering the build — and this will ' +
+      'start working from then on.'
     );
   }
 
@@ -227,7 +221,26 @@ module.exports = [
             throw new Error('This Node version has no global fetch. Node 18+ is required.');
           }
 
-          await sock.sendMessage(jid, { text: '⏳ Triggering a new Heroku build from GitHub...' }, { quoted: msg });
+          // Resolve the exact commit first, so the build is deterministic
+          // and we can record what's actually being deployed.
+          const latest = await githubApi(`/commits/${GITHUB_BRANCH}`);
+          const latestSha = latest.sha;
+
+          // Record it as a config var BEFORE building, so the new dyno
+          // boots with the correct DEPLOYED_COMMIT already set. Heroku
+          // tarballs have no .git folder, so this is the only reliable
+          // way to know what commit is actually running.
+          await fetch(`https://api.heroku.com/apps/${appName}/config-vars`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Accept': 'application/vnd.heroku+json; version=3',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ DEPLOYED_COMMIT: latestSha }),
+          });
+
+          await sock.sendMessage(jid, { text: `⏳ Triggering a new Heroku build from commit \`${latestSha.slice(0, 7)}\`...` }, { quoted: msg });
 
           const res = await fetch(`https://api.heroku.com/apps/${appName}/builds`, {
             method: 'POST',
@@ -238,7 +251,7 @@ module.exports = [
             },
             body: JSON.stringify({
               source_blob: {
-                url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/tarball/${GITHUB_BRANCH}`,
+                url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/tarball/${latestSha}`,
               },
             }),
           });
@@ -252,7 +265,7 @@ module.exports = [
 
           return sock.sendMessage(jid, {
             text: `✅ Build triggered on Heroku (id: \`${build.id}\`).\n\n` +
-                  `Heroku will build the latest \`${GITHUB_BRANCH}\` commit and restart the dyno automatically once it's ready. ` +
+                  `Building commit \`${latestSha.slice(0, 7)}\` — the dyno will restart automatically once it's ready. ` +
                   `This usually takes 1–3 minutes — the bot will briefly disconnect and reconnect on its own.\n\n` +
                   `You can watch progress with:\n\`heroku builds:info ${build.id} -a ${appName}\``
           }, { quoted: msg });
