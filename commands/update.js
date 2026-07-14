@@ -55,19 +55,32 @@ async function githubApi(endpoint) {
   return res.json();
 }
 
+const DEPLOYED_COMMIT_PATH = path.join(root, '.deployed-commit');
+
 /**
- * Compares the deployed Heroku slug commit against the latest on GitHub.
- * Requires `heroku labs:enable runtime-dyno-metadata` to have been run on
- * the app, which populates HEROKU_SLUG_COMMIT at runtime.
+ * Compares the deployed commit against the latest on GitHub.
+ *
+ * The deployed commit is captured automatically at build time (see
+ * scripts/write-commit.js, run via the "heroku-postbuild" npm script) —
+ * no manual `heroku labs:enable` step required from the deployer.
  */
 async function checkHerokuUpdate() {
-  const currentCommit = process.env.HEROKU_SLUG_COMMIT;
+  let currentCommit = null;
+
+  if (fs.existsSync(DEPLOYED_COMMIT_PATH)) {
+    currentCommit = fs.readFileSync(DEPLOYED_COMMIT_PATH, 'utf8').trim();
+  }
+
+  // Fallback for anyone who already has runtime-dyno-metadata enabled from before.
+  if (!currentCommit) {
+    currentCommit = process.env.HEROKU_SLUG_COMMIT;
+  }
 
   if (!currentCommit) {
     throw new Error(
-      'HEROKU_SLUG_COMMIT is not set. Run this once from your dev machine:\n' +
-      '`heroku labs:enable runtime-dyno-metadata -a <your-app-name>`\n' +
-      'then redeploy, and this will start working.'
+      'Could not determine the currently deployed commit. This usually means the bot ' +
+      'hasn\'t been rebuilt since this feature was added — run .updatenow once, or ' +
+      '`git push heroku main`, and this will start working on the next build.'
     );
   }
 
