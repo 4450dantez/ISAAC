@@ -16,8 +16,13 @@ const { loadCommands } = require('./utils/commandLoader');
 const { registerConnectionHandler } = require('./events/connection');
 const { registerMessageHandler } = require('./events/messages');
 const { fetchCore } = require('./utils/fetchCore');
+const { acquireLock } = require('./utils/instanceLock');
 
 const fs = require('fs');
+
+// Prevent two instances running at the same time — dual instances
+// cause Bad MAC errors that corrupt the WhatsApp Signal session.
+acquireLock();
 
 function restoreSettingsFromEnv() {
   const settingsPath = path.join(__dirname, 'config', 'botSettings.json');
@@ -37,16 +42,29 @@ function restoreSessionFromEnv() {
   const authDir = path.join(__dirname, config.authFolder);
   const credsPath = path.join(authDir, 'creds.json');
 
-  if (config.sessionId && !fs.existsSync(credsPath)) {
+  if (fs.existsSync(credsPath)) return; // already have a session, nothing to restore
+
+  // Try SESSION_ID env var first
+  let raw = config.sessionId;
+
+  // Fall back to DB backup if SESSION_ID not set
+  if (!raw) {
     try {
-      if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
-      const raw = config.sessionId.replace(/^ISAAC-MD:~/, '');
-      const buffer = Buffer.from(raw, 'base64');
-      fs.writeFileSync(credsPath, buffer);
-      logger.info('✅ Restored session from SESSION_ID.');
-    } catch (error) {
-      logger.error(`[restoreSessionFromEnv] Failed to restore session: ${error.message}`);
-    }
+      const settingsStore = require('./utils/settingsStore');
+      raw = settingsStore.get('_sessionBackup', null);
+      if (raw) logger.info('✅ Restored session from DB backup.');
+    } catch {}
+  }
+
+  if (!raw) return;
+
+  try {
+    if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+    const buffer = Buffer.from(raw.replace(/^ISAAC-MD:~/, ''), 'base64');
+    fs.writeFileSync(credsPath, buffer);
+    logger.info('✅ Restored session from SESSION_ID.');
+  } catch (error) {
+    logger.error(`[restoreSessionFromEnv] Failed to restore session: ${error.message}`);
   }
 }
 
@@ -68,13 +86,13 @@ function printBanner() {
 
 async function startBot() {
   try {
-restoreSessionFromEnv();
-restoreSettingsFromEnv();
+    restoreSessionFromEnv();
+    restoreSettingsFromEnv();
 
     const { state, saveCreds } = await useMultiFileAuthState(
       path.join(__dirname, config.authFolder)
     );
-const wasAlreadyRegistered = state.creds.registered;
+    const wasAlreadyRegistered = state.creds.registered;
 
     const { version } = await fetchLatestBaileysVersion();
 
@@ -98,43 +116,59 @@ const wasAlreadyRegistered = state.creds.registered;
       auth: state,
       logger: logger.child ? logger.child({ module: 'baileys' }) : logger,
       defaultQueryTimeoutMs: 90000,
-        connectTimeoutMs: 90000,
-        keepAliveIntervalMs: 15000,
-        retryRequestDelayMs: 1000,
-        syncFullHistory: false,
-        markOnlineOnConnect: false,
+      connectTimeoutMs: 90000,
+      keepAliveIntervalMs: 15000,
+      retryRequestDelayMs: 1000,
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
       browser: ['Ubuntu', 'Chrome', '120.0.6099.130'],
       cachedGroupMetadata: async (jid) => groupCache.get(jid),
+      // Required in Baileys v7 — without this the library stays in a
+      // history-sync limbo for 10-30 min where incoming messages arrive
+      // as type:'append' instead of type:'notify' and get ignored.
+      getMessage: async (key) => {
+        const messageCache = require('./utils/messageCache');
+        const cached = messageCache.get(key.remoteJid, key.id);
+        if (cached?.rawMessage) return cached.rawMessage;
+        return { conversation: '' };
+      },
     });
 
+    // Save credentials whenever they change
     sock.ev.on('creds.update', saveCreds);
-let pairingCodeRequested = false;
 
-sock.ev.on('connection.update', async ({ connection }) => {
-  if (
-    connection === 'connecting' &&
-    phoneNumber &&
-    !pairingCodeRequested
-  ) {
-    pairingCodeRequested = true;
+    // Back up session to DB on every credential update so a filesystem
+    // wipe (container restart, redeploy) doesn't force a full re-pair.
+    sock.ev.on('creds.update', async () => {
+      try {
+        const settingsStore = require('./utils/settingsStore');
+        const credsPath = path.join(__dirname, config.authFolder, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+          const sessionId = `ISAAC-MD:~${fs.readFileSync(credsPath).toString('base64')}`;
+          settingsStore.set('_sessionBackup', sessionId);
+        }
+      } catch (e) {
+        logger.warn('[sessionBackup] Could not back up session to DB:', e.message);
+      }
+    });
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    let pairingCodeRequested = false;
 
-      const code = await sock.requestPairingCode(phoneNumber);
-
-      console.log('\n========================================');
-      console.log(`   YOUR PAIRING CODE: ${code}`);
-      console.log('========================================\n');
-
-      logger.info(
-        'Enter this code in WhatsApp > Linked Devices > Link with phone number.'
-      );
-    } catch (error) {
-      logger.error(`[pairing] ${error.message}`);
-    }
-  }
-});
+    sock.ev.on('connection.update', async ({ connection }) => {
+      if (connection === 'connecting' && phoneNumber && !pairingCodeRequested) {
+        pairingCodeRequested = true;
+        try {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const code = await sock.requestPairingCode(phoneNumber);
+          console.log('\n========================================');
+          console.log(`   YOUR PAIRING CODE: ${code}`);
+          console.log('========================================\n');
+          logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
+        } catch (error) {
+          logger.error(`[pairing] ${error.message}`);
+        }
+      }
+    });
 
     sock.ev.on('groups.update', async ([event]) => {
       try {
@@ -154,8 +188,6 @@ sock.ev.on('connection.update', async ({ connection }) => {
 
         const settingsStore = require('./utils/settingsStore');
         if (settingsStore.get('welcomegoodbye', false)) {
-          const fs = require('fs');
-          const path = require('path');
           const settingsPath = path.join(__dirname, 'config', 'groupSettings.json');
           const groupSettings = fs.existsSync(settingsPath)
             ? JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
@@ -163,20 +195,19 @@ sock.ev.on('connection.update', async ({ connection }) => {
           const perGroup = groupSettings[event.id] || {};
 
           for (const entry of event.participants) {
-              const participant = entry.phoneNumber || entry.id || entry;
-
-              if (event.action === 'add' && perGroup.welcome) {
-                await sock.sendMessage(event.id, {
-                  text: `👋 Welcome @${participant.split('@')[0]} to *${metadata.subject}*! Glad to have you here.`,
-                  mentions: [participant],
-                });
-              } else if (event.action === 'remove' && perGroup.goodbye) {
-                await sock.sendMessage(event.id, {
-                  text: `👋 @${participant.split('@')[0]} has left *${metadata.subject}*. Goodbye!`,
-                  mentions: [participant],
-                });
-              }
+            const participant = entry.phoneNumber || entry.id || entry;
+            if (event.action === 'add' && perGroup.welcome) {
+              await sock.sendMessage(event.id, {
+                text: `👋 Welcome @${participant.split('@')[0]} to *${metadata.subject}*! Glad to have you here.`,
+                mentions: [participant],
+              });
+            } else if (event.action === 'remove' && perGroup.goodbye) {
+              await sock.sendMessage(event.id, {
+                text: `👋 @${participant.split('@')[0]} has left *${metadata.subject}*. Goodbye!`,
+                mentions: [participant],
+              });
             }
+          }
         }
       } catch (error) {
         logger.error(`[groupCache] Failed to update metadata for ${event?.id}: ${error.message}`);
@@ -195,21 +226,14 @@ sock.ev.on('connection.update', async ({ connection }) => {
         const now = new Date();
         const timeStr = new Intl.DateTimeFormat('en-GB', {
           timeZone: config.timezone,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
         }).format(now);
         const dateStr = new Intl.DateTimeFormat('en-GB', {
           timeZone: config.timezone,
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
+          day: '2-digit', month: '2-digit', year: 'numeric',
         }).format(now);
 
-        const bioText = `ISAAC-MD is alive now\n${dateStr} ${timeStr}\n"${quote}"`;
-
-        await sock.updateProfileStatus(bioText);
+        await sock.updateProfileStatus(`ISAAC-MD is alive now\n${dateStr} ${timeStr}\n"${quote}"`);
       } catch (error) {
         logger.error(`[autobio] Failed to update bio: ${error.message}`);
       }
@@ -219,7 +243,6 @@ sock.ev.on('connection.update', async ({ connection }) => {
       try {
         const settingsStore = require('./utils/settingsStore');
         if (!settingsStore.get('anticall', false)) return;
-
         for (const call of calls) {
           if (call.status === 'offer') {
             await sock.rejectCall(call.id, call.from);
@@ -272,5 +295,6 @@ setTimeout(async () => {
   commands = loadCommands(commandsPath);
   const { runClearCache } = require('./commands/clearcache');
   global.runClearCache = runClearCache;
+  await require('./utils/settingsStore').ready; // wait for DB before connecting
   startBot();
 }, startupDelay);
