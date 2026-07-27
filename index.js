@@ -8,6 +8,7 @@ const {
   default: makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
+  DisconnectReason,
 } = require('@whiskeysockets/baileys');
 
 const config = require('./config/config');
@@ -16,7 +17,7 @@ const { loadCommands } = require('./utils/commandLoader');
 const { registerConnectionHandler } = require('./events/connection');
 const { registerMessageHandler } = require('./events/messages');
 const { fetchCore } = require('./utils/fetchCore');
-const { acquireLock } = require('./utils/instanceLock');
+const { acquireLock, releaseLock } = require('./utils/instanceLock');
 
 const fs = require('fs');
 
@@ -43,6 +44,16 @@ function restoreSessionFromEnv() {
   const credsPath = path.join(authDir, 'creds.json');
 
   if (fs.existsSync(credsPath)) return; // already have a session, nothing to restore
+
+  // If last session was logged out, skip restoration — force a fresh pair
+  try {
+    const settingsStore = require('./utils/settingsStore');
+    if (settingsStore.get('_sessionLoggedOut', false)) {
+      logger.warn('[restoreSession] Last session was logged out. Skipping restoration — fresh pair required.');
+      settingsStore.set('_sessionLoggedOut', false); // clear flag so next restart is normal
+      return;
+    }
+  } catch {}
 
   // Try SESSION_ID env var first
   let raw = config.sessionId;
@@ -155,21 +166,40 @@ async function startBot() {
 
     let pairingCodeRequested = false;
 
-    sock.ev.on('connection.update', async ({ connection }) => {
-      if (connection === 'connecting' && phoneNumber && !pairingCodeRequested) {
-        pairingCodeRequested = true;
-        try {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          const code = await sock.requestPairingCode(phoneNumber);
-          console.log('\n========================================');
-          console.log(`   YOUR PAIRING CODE: ${code}`);
-          console.log('========================================\n');
-          logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
-        } catch (error) {
-          logger.error(`[pairing] ${error.message}`);
-        }
-      }
-    });
+    sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+  if (connection === 'connecting' && phoneNumber && !pairingCodeRequested) {
+    pairingCodeRequested = true;
+    try {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const code = await sock.requestPairingCode(phoneNumber);
+      console.log('\n========================================');
+      console.log(`   YOUR PAIRING CODE: ${code}`);
+      console.log('========================================\n');
+      logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
+    } catch (error) {
+      logger.error(`[pairing] ${error.message}`);
+    }
+  }
+
+    if (connection === 'close') {
+    const status = lastDisconnect?.error?.output?.statusCode;
+        if (status === DisconnectReason.loggedOut) {
+      releaseLock();
+      try {
+        const settingsStore = require('./utils/settingsStore');
+        settingsStore.set('_sessionBackup', null);      // wipe dead session from DB
+        settingsStore.set('_sessionLoggedOut', true);   // flag: skip restore on next start
+        logger.info('[sessionBackup] DB backup cleared after logout.');
+      } catch {}
+      // Delete auth folder so no stale creds.json remains on disk
+      try {
+        const authDir = path.join(__dirname, config.authFolder);
+        fs.rmSync(authDir, { recursive: true, force: true });
+        logger.info('[session] Auth folder deleted — ready for fresh pair on restart.');
+      } catch {}
+    }
+  }
+});
 
     sock.ev.on('groups.update', async ([event]) => {
       try {
