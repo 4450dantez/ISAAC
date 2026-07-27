@@ -3,6 +3,33 @@ const path = require('path');
 
 const LOCK_FILE = path.join(__dirname, '../auth_info_baileys/.instance.lock');
 
+// Basename of our own entry point e.g. "index.js"
+// Only a process running THIS script counts as a duplicate.
+const OUR_SCRIPT = path.basename(process.argv[1]);
+
+function isOurBotProcess(pid) {
+  try {
+    process.kill(pid, 0); // throws ESRCH if process is dead
+  } catch {
+    return false; // stale lock
+  }
+
+  try {
+    // Args are null-byte separated in /proc/cmdline
+    const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8')
+      .replace(/\0/g, ' ')
+      .trim();
+
+    const isNode = /\bnode\b/i.test(cmdline);
+    const isOurScript = cmdline.includes(OUR_SCRIPT); // must have "index.js"
+
+    return isNode && isOurScript;
+  } catch {
+    // /proc not readable — can't confirm, treat as not ours
+    return false;
+  }
+}
+
 function acquireLock() {
   try {
     fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true });
@@ -10,47 +37,23 @@ function acquireLock() {
     if (fs.existsSync(LOCK_FILE)) {
       const pid = Number(fs.readFileSync(LOCK_FILE, 'utf8').trim());
 
-      if (!Number.isNaN(pid)) {
-        try {
-          process.kill(pid, 0); // throws if process doesn't exist
-
-          // Check cmdline — null bytes separate args, replace for readability
-          const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8')
-            .replace(/\0/g, ' ')
-            .trim();
-
-          // Check working directory — only our bot runs from the same folder
-          let cwd = null;
-          try {
-            cwd = fs.readlinkSync(`/proc/${pid}/cwd`);
-          } catch {}
-
-          const isNode = cmdline.toLowerCase().includes('node');
-          const isSameDir = cwd === process.cwd();
-
-          if (isNode && isSameDir) {
-            console.error(
-              `[instanceLock] ❌ Another ISAAC-MD instance is already running (PID ${pid}). Exiting to protect session.`
-            );
-            process.exit(1);
-          }
-
-          // Process exists but it's not our bot (different dir or not Node)
-          console.warn(
-            `[instanceLock] ⚠️ PID ${pid} exists but is not ISAAC-MD. Replacing stale lock.`
+      if (!Number.isNaN(pid) && pid !== process.pid) {
+        if (isOurBotProcess(pid)) {
+          console.error(
+            `[instanceLock] ❌ Another ISAAC-MD instance is already running (PID ${pid}). Exiting to protect session.`
           );
-        } catch (e) {
-          if (e.code === 'ESRCH') {
-            // Process is dead — stale lock, safe to overwrite
-            console.warn('[instanceLock] ⚠️ Stale lock found (process dead). Replacing...');
-          }
+          process.exit(1);
+        } else {
+          console.warn(
+            `[instanceLock] ⚠️ PID ${pid} is not ISAAC-MD (stale or foreign). Replacing lock.`
+          );
         }
       }
     }
 
     fs.writeFileSync(LOCK_FILE, String(process.pid));
+    console.log(`[instanceLock] ✅ Lock acquired (PID ${process.pid})`);
 
-    // Clean up lock on exit — only remove if it's still ours
     const cleanup = () => {
       try {
         if (
@@ -63,11 +66,11 @@ function acquireLock() {
     };
 
     process.on('exit', cleanup);
-    process.on('SIGINT', () => { cleanup(); process.exit(0); });
+    process.on('SIGINT',  () => { cleanup(); process.exit(0); });
     process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
   } catch (err) {
-    console.error('[instanceLock]', err.message);
+    console.error('[instanceLock] Error:', err.message);
   }
 }
 
