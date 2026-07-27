@@ -30,6 +30,17 @@ function registerConnectionHandler(sock, startBot, wasAlreadyRegistered) {
   logger.info('✅ Connected to WhatsApp successfully!');
 
   try {
+    const { groupCache } = require('../utils/groupCache');
+    try {
+      const allGroups = await sock.groupFetchAllParticipating();
+      for (const [groupJid, metadata] of Object.entries(allGroups)) {
+        groupCache.set(groupJid, metadata);
+      }
+      logger.info(`✅ Warmed group metadata cache for ${Object.keys(allGroups).length} group(s).`);
+    } catch (error) {
+      logger.error(`[groupCache] Failed to warm cache on connect: ${error.message}`);
+    }
+
     await autoJoinGroupOnce(sock);
 
     const selfJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : null;
