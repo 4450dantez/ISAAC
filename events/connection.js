@@ -1,18 +1,3 @@
-/**
- * events/connection.js
- * --------------------
- * Handles the 'connection.update' event from Baileys.
- *
- * This event fires whenever the bot's connection state to WhatsApp changes,
- * for example:
- *   - 'connecting'  -> the socket is attempting to connect
- *   - 'open'        -> successfully connected and ready to send/receive
- *   - 'close'       -> disconnected (we decide here whether to reconnect)
- *
- * It's also responsible for printing the QR code to the terminal so the
- * user can link their WhatsApp account on first run.
- */
-
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
