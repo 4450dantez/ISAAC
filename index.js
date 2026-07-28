@@ -113,7 +113,7 @@ async function startBot() {
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
       phoneNumber = await new Promise((resolve) => {
         rl.question(
-          'Enter your WhatsApp number with country code (e.g. 15551234567), or press Enter to use QR instead: ',
+          'Enter your WhatsApp number with country code (e.g. 254754574642), or press Enter to use QR instead: ',
           (answer) => {
             rl.close();
             resolve(answer && answer.trim() ? answer.trim() : null);
