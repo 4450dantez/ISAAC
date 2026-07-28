@@ -131,7 +131,6 @@ async function startBot() {
       keepAliveIntervalMs: 15000,
       retryRequestDelayMs: 1000,
       syncFullHistory: false,
-      shouldSyncHistoryMessage: () => false,
       markOnlineOnConnect: false,
       browser: ['Ubuntu', 'Chrome', '120.0.6099.130'],
       cachedGroupMetadata: async (jid) => groupCache.get(jid),
