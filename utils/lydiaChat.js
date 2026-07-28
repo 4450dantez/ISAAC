@@ -1,7 +1,5 @@
 const https = require('https');
-require('dotenv').config();
-
-const GROQ_KEY = process.env.GROQ_KEY;
+const { KEITH_BASE } = require('../config/apis');
 
 const LYDIA_SYSTEM_PROMPT = `You are Lydia, a warm, witty, and easygoing chat companion inside a WhatsApp group.
 You are friendly and casual, like chatting with a fun, clever friend. Keep replies short (1-4 sentences),
@@ -10,48 +8,34 @@ good-humored, but you don't role-play as a romantic or sexual partner, and you d
 if directly asked. If a message is inappropriate or asks you to do something harmful, gently decline and
 steer the conversation elsewhere.`;
 
-function httpsPost(hostname, reqPath, headers, body) {
+function httpsGet(url) {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify(body);
-    const req = https.request(
-      { hostname, path: reqPath, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(data) } },
-      (res) => {
-        let raw = '';
-        res.on('data', (chunk) => (raw += chunk));
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(raw));
-          } catch {
-            resolve({ error: raw });
-          }
-        });
-      }
-    );
-    req.on('error', reject);
-    req.write(data);
-    req.end();
+    https.get(url, (res) => {
+      let raw = '';
+      res.on('data', (chunk) => (raw += chunk));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(raw));
+        } catch {
+          resolve({ error: raw });
+        }
+      });
+    }).on('error', reject);
   });
 }
 
 async function getLydiaReply(userMessage) {
-  if (!GROQ_KEY) return null;
-
   try {
-    const res = await httpsPost(
-      'api.groq.com',
-      '/openai/v1/chat/completions',
-      { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
-      {
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: LYDIA_SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-        max_tokens: 300,
-      }
-    );
+    const combinedPrompt = `${LYDIA_SYSTEM_PROMPT}\n\nUser: ${userMessage}\nLydia:`;
+    const encoded = encodeURIComponent(combinedPrompt);
 
-    return res?.choices?.[0]?.message?.content || null;
+    const res = await httpsGet(`${KEITH_BASE}/ai/gpt?q=${encoded}`);
+
+    if (!res?.status || !res?.result) return null;
+
+    return res.result
+      .replace(/Keith AI/gi, 'Lydia')
+      .replace(/Keithkeizzah/gi, 'ISAAC');
   } catch (err) {
     console.error('[lydiaChat] Error getting reply:', err.message);
     return null;
