@@ -1,17 +1,3 @@
-/**
- * config/config.js
- * -----------------
- * Central configuration file for the bot.
- * Values are pulled from environment variables (set via Heroku config vars
- * or your local .env file), falling back to sensible defaults.
- *
- * `prefix` and `WORK_TYPE` (public/private mode) can also be changed at
- * runtime via the .prefix and .mode commands. Those commands persist their
- * changes to config/botSettings.json via runtimeSettings, and that
- * persisted value takes priority over the .env default below — so a
- * runtime change survives a restart instead of reverting.
- */
-
 const runtimeSettings = require('./runtimeSettings');
 
 module.exports = {
