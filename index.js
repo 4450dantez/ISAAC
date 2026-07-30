@@ -82,6 +82,8 @@ function restoreSessionFromEnv() {
 
 const commandsPath = path.join(__dirname, 'commands');
 let commands = {};
+let wapresenceInterval = null;
+let autobioInterval = null;
 
 function printBanner() {
   console.log(
@@ -249,7 +251,8 @@ async function startBot() {
       }
     });
 
-    setInterval(async () => {
+    if (autobioInterval) clearInterval(autobioInterval);
+    autobioInterval = setInterval(async () => {
       try {
         const settingsStore = require('./utils/settingsStore');
         if (!settingsStore.get('autobio', false)) return;
@@ -289,7 +292,8 @@ async function startBot() {
       }
     });
 
-    setInterval(async () => {
+    if (wapresenceInterval) clearInterval(wapresenceInterval);
+    wapresenceInterval = setInterval(async () => {
       try {
         const settingsStore = require('./utils/settingsStore');
         if (settingsStore.get('wapresence', false)) {
