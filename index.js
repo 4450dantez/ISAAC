@@ -9,6 +9,7 @@ const {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
+  makeCacheableSignalKeyStore,
 } = require('@whiskeysockets/baileys');
 
 const config = require('./config/config');
@@ -124,7 +125,10 @@ async function startBot() {
 
     const sock = makeWASocket({
       version,
-      auth: state,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger.child ? logger.child({ module: 'baileys' }) : logger),
+      },
       logger: logger.child ? logger.child({ module: 'baileys' }) : logger,
       defaultQueryTimeoutMs: 90000,
       connectTimeoutMs: 90000,
