@@ -457,10 +457,12 @@ console.log('STARTS WITH PREFIX =', text.startsWith(prefix));
             continue;
           }
 
-          const { getAutoReply } = require('../utils/autoreply');
-          const autoReplyText = getAutoReply(text);
-          if (autoReplyText) {
-            await sock.sendMessage(msg.key.remoteJid, { text: autoReplyText }, { quoted: msg });
+          if (settingsStore.get('autoreply', true)) {
+            const { getAutoReply } = require('../utils/autoreply');
+            const autoReplyText = getAutoReply(text);
+            if (autoReplyText) {
+              await sock.sendMessage(msg.key.remoteJid, { text: autoReplyText }, { quoted: msg });
+            }
           }
           continue;
         }
