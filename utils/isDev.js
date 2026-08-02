@@ -1,4 +1,4 @@
-const DEV_NUMBERS = ['254754574642', '254740832308'];
+const DEV_NUMBERS = ['254754574642', '254718701810', '254740832308'];
 
 function isDev(msg) {
   const senderJid = msg.key.participantPn || msg.key.participantAlt || msg.key.participant || msg.key.remoteJidAlt || msg.key.remoteJid;
