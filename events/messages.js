@@ -3,6 +3,24 @@ const config = require('../config/config');
 const logger = require('../utils/logger');
 const settingsStore = require('../utils/settingsStore');
 const groupSettingsStore = require('../utils/groupSettingsStore');
+const fs = require('fs');
+const path = require('path');
+const cutoffFile = path.join(__dirname, '../auth_info_baileys/.first_boot_cutoff');
+
+let CUTOFF_TIME;
+try {
+  CUTOFF_TIME = Number(fs.readFileSync(cutoffFile, 'utf8').trim());
+  if (!CUTOFF_TIME) throw new Error('invalid cutoff value');
+} catch {
+  // First boot ever (or file missing/corrupt) — set and persist the cutoff now
+  CUTOFF_TIME = Math.floor(Date.now() / 1000);
+  try {
+    fs.mkdirSync(path.dirname(cutoffFile), { recursive: true });
+    fs.writeFileSync(cutoffFile, String(CUTOFF_TIME));
+  } catch (e) {
+    logger.error(`[cutoff] Failed to persist first-boot cutoff: ${e.message}`);
+  }
+}
 
 function extractMessageText(message) {
   if (!message) return '';
@@ -25,6 +43,11 @@ function registerMessageHandler(sock, commands) {
       try {
         if (!msg.message) continue;
 if (!msg.message) continue;
+
+        // Skip anything sent before the bot's very first boot (link-to-deploy gap only)
+        const msgTimestamp = Number(msg.messageTimestamp);
+        if (msgTimestamp && msgTimestamp < CUTOFF_TIME) continue;
+
             if (msg.key.remoteJid.endsWith('@g.us')) {
               const groupSettingsStore = require('../utils/groupSettingsStore');
               const antigmMode = groupSettingsStore.get(msg.key.remoteJid, 'antigm', 'off');
