@@ -61,6 +61,16 @@ function registerConnectionHandler(sock, startBot, wasAlreadyRegistered) {
         // storage is ever wiped or you move hosts, you can reconnect by
         // pasting this value into the SESSION_ID environment variable
         // instead of re-pairing.
+
+        // Also reset the message-cutoff marker used by events/messages.js —
+        // a fresh pairing means any old cutoff (from a previous session on
+        // this same server) no longer applies. Deleting it here lets
+        // messages.js set a brand new cutoff the moment it next loads.
+        try {
+          fs.unlinkSync(path.join(__dirname, '..', config.authFolder, '.first_boot_cutoff'));
+          logger.info('[cutoff] Reset first-boot cutoff for new pairing.');
+        } catch {}
+
         const credsPath = path.join(__dirname, '..', config.authFolder, 'creds.json');
 
         if (fs.existsSync(credsPath)) {
