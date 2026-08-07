@@ -14,7 +14,7 @@
     "baileys",
     "nodejs"
   ],
-  "author": "",
+  "author": "𝗜𝗦𝗔𝗔𝗖",
   "license": "MIT",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
