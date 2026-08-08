@@ -177,7 +177,7 @@ if (!msg.message) continue;
           }
 
           if (msg.message.protocolMessage?.type === proto.Message.ProtocolMessage.Type.MESSAGE_EDIT) {
-            if (settingsStore.get('antidelete', false)) {
+            if (settingsStore.get('antiedit', false)) {
               const { jidNormalizedUser } = require('@whiskeysockets/baileys');
               const messageCache = require('../utils/messageCache');
               const originalKey = msg.message.protocolMessage.key;
@@ -185,7 +185,7 @@ if (!msg.message) continue;
 
               const newText = extractMessageText(msg.message.protocolMessage.editedMessage);
 
-              const dest = settingsStore.get('antideleteDest', 'p');
+              const dest = settingsStore.get('antieditDest', 'p');
               const targetJid = dest === 'g'
                 ? msg.key.remoteJid
                 : (sock.user?.id ? jidNormalizedUser(sock.user.id) : msg.key.remoteJid);
