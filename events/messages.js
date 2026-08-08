@@ -414,6 +414,24 @@ console.log('STARTS WITH PREFIX =', text.startsWith(prefix));
         }
 
           if (!text.startsWith(prefix)) {
+            // No-prefix triggers (e.g. emoji-only commands like vv2) —
+            // checked first so they don't fall through to autoreply/lydia/gptdm.
+            let noPrefixCommand = null;
+            for (const cmd of new Set(commands.values())) {
+              if (Array.isArray(cmd.noprefix) && cmd.noprefix.includes(text)) {
+                noPrefixCommand = cmd;
+                break;
+              }
+            }
+            if (noPrefixCommand) {
+              if (workType === 'private' && !msg.key.fromMe) {
+                const { isSudo } = require('../utils/isSudo');
+                if (!isSudo(msg)) continue;
+              }
+              await noPrefixCommand.execute(sock, msg, [], commands);
+              continue;
+            }
+
             const lydiaStore = require('../utils/lydiaStore');
             const senderJid = msg.key.participant || msg.key.remoteJid;
             if (lydiaStore.isEnabled(msg.key.remoteJid, senderJid)) {
