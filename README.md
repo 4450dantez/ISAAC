@@ -56,7 +56,7 @@
 
 
 <p align="center">
-  <a href="https://wa.me/254754574642?text=Hello%20Isaac%2C%20I%20need%20help%20with%20ISAAC%20BOT.">
+  <a href="https://wa.me/254718701810?text=Hello%20Isaac%2C%20I%20need%20help%20with%20ISAAC%20BOT.">
     <img src="https://img.shields.io/badge/Contact_Developer-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" />
   </a>
 </p>
