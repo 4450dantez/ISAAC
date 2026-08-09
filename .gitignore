@@ -1,4 +1,4 @@
-# Dependencies
+# Dependencie
 node_modules/
 
 # WhatsApp authentication credentials — NEVER commit these, they grant
