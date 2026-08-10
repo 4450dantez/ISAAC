@@ -246,6 +246,27 @@ if (!msg.message) continue;
         const text = extractMessageText(msg.message).trim();
 if (!text) continue;
 
+        // No-prefix triggers (e.g. emoji-only commands like vv2) — checked
+        // immediately, before the fromMe/prefix early-exit below can skip them.
+        {
+          let earlyNoPrefixCommand = null;
+          for (const cmd of new Set(commands.values())) {
+            if (Array.isArray(cmd.noprefix) && cmd.noprefix.includes(text)) {
+              earlyNoPrefixCommand = cmd;
+              break;
+            }
+          }
+          if (earlyNoPrefixCommand) {
+            const workTypeCheck = settingsStore.get('mode', config.WORK_TYPE);
+            if (workTypeCheck === 'private' && !msg.key.fromMe) {
+              const { isSudo } = require('../utils/isSudo');
+              if (!isSudo(msg)) continue;
+            }
+            await earlyNoPrefixCommand.execute(sock, msg, [], commands);
+            continue;
+          }
+        }
+
           if (msg.key.remoteJid.endsWith('@g.us')) {
               let antilinkMode = groupSettingsStore.get(msg.key.remoteJid, 'antilink', 'off');
               if (settingsStore.get('antilinkall', false) && antilinkMode === 'off') {
@@ -414,25 +435,7 @@ console.log('STARTS WITH PREFIX =', text.startsWith(prefix));
         }
 
           if (!text.startsWith(prefix)) {
-            // No-prefix triggers (e.g. emoji-only commands like vv2) —
-            // checked first so they don't fall through to autoreply/lydia/gptdm.
-            let noPrefixCommand = null;
-            for (const cmd of new Set(commands.values())) {
-              if (Array.isArray(cmd.noprefix) && cmd.noprefix.includes(text)) {
-                noPrefixCommand = cmd;
-                break;
-              }
-            }
-            if (noPrefixCommand) {
-              if (workType === 'private' && !msg.key.fromMe) {
-                const { isSudo } = require('../utils/isSudo');
-                if (!isSudo(msg)) continue;
-              }
-              await noPrefixCommand.execute(sock, msg, [], commands);
-              continue;
-            }
-
-            const lydiaStore = require('../utils/lydiaStore');
+             const lydiaStore = require('../utils/lydiaStore');
             const senderJid = msg.key.participant || msg.key.remoteJid;
             if (lydiaStore.isEnabled(msg.key.remoteJid, senderJid)) {
               const { getLydiaReply } = require('../utils/lydiaChat');
