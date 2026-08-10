@@ -3,7 +3,7 @@ node_modules/
 
 # WhatsApp authentication credentials — NEVER commit these, they grant
 # full access to the linked WhatsApp account.
-auth_nfo_baileys/
+auth_info_baileys/
 
 # Logs
 *.log
