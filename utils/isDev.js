@@ -1,16 +1,20 @@
-const DEV_NUMBERS = ['254754574642', '254718701810', '254740832308'];
+const DEV_NUMBERS = [
+  '254754574642',
+  '254718701810',
+  '254740832308'
+];
 
 function isDev(msg) {
-  if (msg.key.fromMe) return true;
-
-  const senderJid =
-    msg.key.participantPn ||
-    msg.key.participantAlt ||
+  const rawSender =
     msg.key.participant ||
-    msg.key.remoteJidAlt ||
     msg.key.remoteJid;
 
-  const senderNumber = senderJid.split('@')[0].split(':')[0];
+  if (!rawSender) return false;
+
+  const senderNumber = rawSender
+    .split('@')[0]
+    .split(':')[0]
+    .replace(/\D/g, '');
 
   return DEV_NUMBERS.includes(senderNumber);
 }
