@@ -4,19 +4,29 @@ const DEV_NUMBERS = [
   '254740832308'
 ];
 
-function isDev(msg) {
-  const rawSender =
-    msg.key.participant ||
-    msg.key.remoteJid;
+function normalizeNumber(jid) {
+  if (!jid) return '';
 
-  if (!rawSender) return false;
-
-  const senderNumber = rawSender
+  return jid
     .split('@')[0]
     .split(':')[0]
     .replace(/\D/g, '');
+}
 
-  return DEV_NUMBERS.includes(senderNumber);
+function isDev(msg) {
+  if (!msg?.key) return false;
+
+  const possibleSenders = [
+    msg.key.participantPn,
+    msg.key.participant,
+    msg.key.remoteJidAlt,
+    msg.key.remoteJid
+  ];
+
+  return possibleSenders.some((jid) => {
+    const number = normalizeNumber(jid);
+    return number && DEV_NUMBERS.includes(number);
+  });
 }
 
 module.exports = { isDev };
