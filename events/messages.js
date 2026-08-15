@@ -45,7 +45,6 @@ function registerMessageHandler(sock, commands) {
 if (!msg.message) continue;
 
         // Skip anything sent before the bot's very first boot (link-to-deploy gap only)
-        logger.info(`[cutoff-debug] raw=${JSON.stringify(msg.messageTimestamp)} type=${typeof msg.messageTimestamp} converted=${Number(msg.messageTimestamp)} cutoff=${CUTOFF_TIME}`);
         const msgTimestamp = Number(msg.messageTimestamp);
         if (msgTimestamp && msgTimestamp < CUTOFF_TIME) continue;
 
