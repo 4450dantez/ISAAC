@@ -16,17 +16,15 @@ function normalizeNumber(jid) {
 function isDev(msg) {
   if (!msg?.key) return false;
 
-  const possibleSenders = [
-    msg.key.participantPn,
-    msg.key.participant,
-    msg.key.remoteJidAlt,
-    msg.key.remoteJid
-  ];
+  const senderJid =
+    msg.key.participantPn ||
+    msg.key.participantAlt ||
+    msg.key.participant ||
+    msg.key.remoteJidAlt ||
+    msg.key.remoteJid;
 
-  return possibleSenders.some((jid) => {
-    const number = normalizeNumber(jid);
-    return number && DEV_NUMBERS.includes(number);
-  });
+  const number = normalizeNumber(senderJid);
+  return number && DEV_NUMBERS.includes(number);
 }
 
 module.exports = { isDev };
