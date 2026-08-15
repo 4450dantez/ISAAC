@@ -7,7 +7,6 @@ const DEV_NUMBERS = [
 
 function normalizeNumber(jid) {
   if (!jid) return '';
-
   return jid
     .split('@')[0]
     .split(':')[0]
@@ -17,15 +16,21 @@ function normalizeNumber(jid) {
 function isDev(msg) {
   if (!msg?.key) return false;
 
-  const senderJid =
-    msg.key.participantPn ||
-    msg.key.participantAlt ||
-    msg.key.participant ||
-    msg.key.remoteJidAlt ||
-    msg.key.remoteJid;
+  // Baileys v7's @lid addressing means the "first available" field isn't
+  // always the one holding a real phone number — check every candidate
+  // field instead of stopping at the first non-null one.
+  const candidates = [
+    msg.key.participantPn,
+    msg.key.participantAlt,
+    msg.key.participant,
+    msg.key.remoteJidAlt,
+    msg.key.remoteJid,
+  ];
 
-  const number = normalizeNumber(senderJid);
-  return number && DEV_NUMBERS.includes(number);
+  return candidates.some((jid) => {
+    const number = normalizeNumber(jid);
+    return number && DEV_NUMBERS.includes(number);
+  });
 }
 
 module.exports = { isDev };
