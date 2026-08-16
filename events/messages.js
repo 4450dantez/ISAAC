@@ -42,7 +42,6 @@ function registerMessageHandler(sock, commands) {
   console.log('MESSAGE RECEIVED:', msg.key);
       try {
         if (!msg.message) continue;
-if (!msg.message) continue;
 
         // Skip anything sent before the bot's very first boot (link-to-deploy gap only)
         const msgTimestamp = Number(msg.messageTimestamp);
