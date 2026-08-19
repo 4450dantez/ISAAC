@@ -1,4 +1,4 @@
-const CACHE_LIMIT = 500;
+const CACHE_LIMIT = 3000;
 const cache = new Map(); // key: `${remoteJid}:${id}` -> { type, text, rawMessage, senderJid, timestamp }
 
 function set(remoteJid, id, data) {
