@@ -459,11 +459,11 @@ console.log('STARTS WITH PREFIX =', text.startsWith(prefix));
                           try {
                             const json = JSON.parse(raw);
                             if (!json.status) return reject(new Error(json.error || 'API request failed'));
-                            resolve(
-                              json.result
-                                .replace(/Keith AI/gi, 'ISAAC AI')
-                                .replace(/Keithkeizzah/gi, 'ISAAC')
-                            );
+                            const cleaned = (json.result || '')
+                              .replace(/Keith AI/gi, 'ISAAC AI')
+                              .replace(/Keithkeizzah/gi, 'ISAAC')
+                              .trim();
+                            resolve(cleaned || null);
                           } catch (e) {
                             reject(e);
                           }

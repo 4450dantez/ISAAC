@@ -28,14 +28,13 @@ async function getLydiaReply(userMessage) {
   try {
     const combinedPrompt = `${LYDIA_SYSTEM_PROMPT}\n\nUser: ${userMessage}\nLydia:`;
     const encoded = encodeURIComponent(combinedPrompt);
-
     const res = await httpsGet(`${KEITH_BASE}/ai/gpt?q=${encoded}`);
-
     if (!res?.status || !res?.result) return null;
-
-    return res.result
+    const reply = res.result
       .replace(/Keith AI/gi, 'Lydia')
-      .replace(/Keithkeizzah/gi, 'ISAAC');
+      .replace(/Keithkeizzah/gi, 'ISAAC')
+      .trim();
+    return reply || null; // whitespace-only results resolve to null, never sent
   } catch (err) {
     console.error('[lydiaChat] Error getting reply:', err.message);
     return null;
