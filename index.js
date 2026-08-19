@@ -148,6 +148,7 @@ async function startBot() {
         const messageCache = require('./utils/messageCache');
         const cached = messageCache.get(key.remoteJid, key.id);
         if (cached?.rawMessage) return cached.rawMessage;
+        if (cached?.type === 'text' && cached.text) return { conversation: cached.text };
         return { conversation: '' };
       },
     });
