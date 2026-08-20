@@ -7,6 +7,7 @@ const DEV_NUMBERS = [
 
 function normalizeNumber(jid) {
   if (!jid) return '';
+  // Strips off @s.whatsapp.net, @lid, and :device suffixes (e.g. 254754574642:15@s.whatsapp.net -> 254754574642)
   return jid
     .split('@')[0]
     .split(':')[0]
@@ -16,7 +17,7 @@ function normalizeNumber(jid) {
 function isDev(msg, sock) {
   if (!msg?.key) return false;
 
-  // 1. Check message candidate JIDs first against DEV_NUMBERS
+  // 1. First, check candidate sender JIDs in the incoming message
   const candidates = [
     msg.key.participantPn,
     msg.key.participantAlt,
@@ -30,15 +31,16 @@ function isDev(msg, sock) {
     return number && DEV_NUMBERS.includes(number);
   });
 
-  if (candidateMatch) {
-    return true;
-  }
+  if (candidateMatch) return true;
 
-  // 2. Fallback: If candidate check failed (e.g. self-chat @lid masking on Baileys v7)
-  // only validate msg.key.fromMe if the bot account itself is verified in DEV_NUMBERS
+  // 2. Self-chat / fromMe fallback:
+  // If sent from the bot account, check if the bot's own phone number (from sock.user.id) is in DEV_NUMBERS
   if (msg.key.fromMe) {
-    const botNumber = sock?.user?.id ? normalizeNumber(sock.user.id) : null;
-    return Boolean(botNumber && DEV_NUMBERS.includes(botNumber));
+    const botPn = sock?.user?.id ? normalizeNumber(sock.user.id) : null;
+    const botLid = sock?.user?.lid ? normalizeNumber(sock.user.lid) : null;
+
+    if (botPn && DEV_NUMBERS.includes(botPn)) return true;
+    if (botLid && DEV_NUMBERS.includes(botLid)) return true;
   }
 
   return false;
