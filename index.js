@@ -10,6 +10,7 @@ const {
   fetchLatestBaileysVersion,
   DisconnectReason,
   makeCacheableSignalKeyStore,
+  proto,
 } = require('@whiskeysockets/baileys');
 
 const config = require('./config/config');
@@ -19,7 +20,6 @@ const { registerConnectionHandler } = require('./events/connection');
 const { registerMessageHandler } = require('./events/messages');
 const { fetchCore } = require('./utils/fetchCore');
 const { acquireLock, releaseLock } = require('./utils/instanceLock');
-
 const fs = require('fs');
 
 // Prevent two instances running at the same time — dual instances
@@ -141,15 +141,12 @@ async function startBot() {
       markOnlineOnConnect: false,
       browser: ['Ubuntu', 'Chrome', '120.0.6099.130'],
       cachedGroupMetadata: async (jid) => groupCache.get(jid),
-      // Required in Baileys v7 — without this the library stays in a
-      // history-sync limbo for 10-30 min where incoming messages arrive
-      // as type:'append' instead of type:'notify' and get ignored.
       getMessage: async (key) => {
         const messageCache = require('./utils/messageCache');
         const cached = messageCache.get(key.remoteJid, key.id);
         if (cached?.rawMessage) return cached.rawMessage;
         if (cached?.type === 'text' && cached.text) return { conversation: cached.text };
-        return { conversation: '' };
+        return proto.Message.fromObject({});
       },
     });
 
@@ -174,39 +171,39 @@ async function startBot() {
     let pairingCodeRequested = false;
 
     sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
-  if (connection === 'connecting' && phoneNumber && !pairingCodeRequested) {
-    pairingCodeRequested = true;
-    try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const code = await sock.requestPairingCode(phoneNumber);
-      console.log('\n========================================');
-      console.log(`   YOUR PAIRING CODE: ${code}`);
-      console.log('========================================\n');
-      logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
-    } catch (error) {
-      logger.error(`[pairing] ${error.message}`);
-    }
-  }
+      if (connection === 'connecting' && phoneNumber && !pairingCodeRequested) {
+        pairingCodeRequested = true;
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const code = await sock.requestPairingCode(phoneNumber);
+          console.log('\n========================================');
+          console.log(`   YOUR PAIRING CODE: ${code}`);
+          console.log('========================================\n');
+          logger.info('Enter this code in WhatsApp > Linked Devices > Link with phone number.');
+        } catch (error) {
+          logger.error(`[pairing] ${error.message}`);
+        }
+      }
 
-    if (connection === 'close') {
-    const status = lastDisconnect?.error?.output?.statusCode;
+      if (connection === 'close') {
+        const status = lastDisconnect?.error?.output?.statusCode;
         if (status === DisconnectReason.loggedOut) {
-      releaseLock();
-      try {
-        const settingsStore = require('./utils/settingsStore');
-        settingsStore.set('_sessionBackup', null);      // wipe dead session from DB
-        settingsStore.set('_sessionLoggedOut', true);   // flag: skip restore on next start
-        logger.info('[sessionBackup] DB backup cleared after logout.');
-      } catch {}
-      // Delete auth folder so no stale creds.json remains on disk
-      try {
-        const authDir = path.join(__dirname, config.authFolder);
-        fs.rmSync(authDir, { recursive: true, force: true });
-        logger.info('[session] Auth folder deleted — ready for fresh pair on restart.');
-      } catch {}
-    }
-  }
-});
+          releaseLock();
+          try {
+            const settingsStore = require('./utils/settingsStore');
+            settingsStore.set('_sessionBackup', null); // wipe dead session from DB
+            settingsStore.set('_sessionLoggedOut', true); // flag: skip restore on next start
+            logger.info('[sessionBackup] DB backup cleared after logout.');
+          } catch {}
+          // Delete auth folder so no stale creds.json remains on disk
+          try {
+            const authDir = path.join(__dirname, config.authFolder);
+            fs.rmSync(authDir, { recursive: true, force: true });
+            logger.info('[session] Auth folder deleted — ready for fresh pair on restart.');
+          } catch {}
+        }
+      }
+    });
 
     sock.ev.on('groups.update', async ([event]) => {
       try {
@@ -338,3 +335,4 @@ setTimeout(async () => {
   await require('./utils/settingsStore').ready; // wait for DB before connecting
   startBot();
 }, startupDelay);
+
