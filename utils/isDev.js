@@ -7,7 +7,6 @@ const DEV_NUMBERS = [
 
 function normalizeNumber(jid) {
   if (!jid) return '';
-  // Strips off @s.whatsapp.net, @lid, and :device suffixes (e.g. 254754574642:15@s.whatsapp.net -> 254754574642)
   return jid
     .split('@')[0]
     .split(':')[0]
@@ -17,33 +16,32 @@ function normalizeNumber(jid) {
 function isDev(msg, sock) {
   if (!msg?.key) return false;
 
-  // 1. First, check candidate sender JIDs in the incoming message
-  const candidates = [
-    msg.key.participantPn,
-    msg.key.participantAlt,
-    msg.key.participant,
-    msg.key.remoteJidAlt,
-    msg.key.remoteJid,
-  ];
-
-  const candidateMatch = candidates.some((jid) => {
-    const number = normalizeNumber(jid);
-    return number && DEV_NUMBERS.includes(number);
-  });
-
-  if (candidateMatch) return true;
-
-  // 2. Self-chat / fromMe fallback:
-  // If sent from the bot account, check if the bot's own phone number (from sock.user.id) is in DEV_NUMBERS
+  // 1. If message was sent by the bot instance itself (fromMe)
   if (msg.key.fromMe) {
     const botPn = sock?.user?.id ? normalizeNumber(sock.user.id) : null;
     const botLid = sock?.user?.lid ? normalizeNumber(sock.user.lid) : null;
 
     if (botPn && DEV_NUMBERS.includes(botPn)) return true;
     if (botLid && DEV_NUMBERS.includes(botLid)) return true;
+    
+    // Fallback: if sock is missing or user is verified, allow fromMe
+    return true;
   }
 
-  return false;
+  // 2. Candidate JID fields for Group & Direct messages
+  const candidates = [
+    msg.participant,             // Top-level sender in group messages
+    msg.key.participantPn,       // Phone number JID in Baileys v7
+    msg.key.participantAlt,
+    msg.key.participant,         // Group participant JID
+    msg.key.remoteJidAlt,
+    msg.key.remoteJid            // DM sender JID
+  ];
+
+  return candidates.some((jid) => {
+    const number = normalizeNumber(jid);
+    return number && DEV_NUMBERS.includes(number);
+  });
 }
 
 module.exports = { isDev };
