@@ -13,12 +13,10 @@ function normalizeNumber(jid) {
     .replace(/\D/g, '');
 }
 
-function isDev(msg) {
+function isDev(msg, sock) {
   if (!msg?.key) return false;
 
-  // Baileys v7's @lid addressing means the "first available" field isn't
-  // always the one holding a real phone number — check every candidate
-  // field instead of stopping at the first non-null one.
+  // 1. Check message candidate JIDs first against DEV_NUMBERS
   const candidates = [
     msg.key.participantPn,
     msg.key.participantAlt,
@@ -27,10 +25,24 @@ function isDev(msg) {
     msg.key.remoteJid,
   ];
 
-  return candidates.some((jid) => {
+  const candidateMatch = candidates.some((jid) => {
     const number = normalizeNumber(jid);
     return number && DEV_NUMBERS.includes(number);
   });
+
+  if (candidateMatch) {
+    return true;
+  }
+
+  // 2. Fallback: If candidate check failed (e.g. self-chat @lid masking on Baileys v7)
+  // only validate msg.key.fromMe if the bot account itself is verified in DEV_NUMBERS
+  if (msg.key.fromMe) {
+    const botNumber = sock?.user?.id ? normalizeNumber(sock.user.id) : null;
+    return Boolean(botNumber && DEV_NUMBERS.includes(botNumber));
+  }
+
+  return false;
 }
 
 module.exports = { isDev };
+
