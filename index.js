@@ -235,7 +235,7 @@ async function startBot() {
               });
             } else if (event.action === 'remove' && perGroup.goodbye) {
               await sock.sendMessage(event.id, {
-                text: `👋 @${participant.split('@')[0]} has left *${metadata.subject}*. Goodbye!`,
+                text: `😡 @${participant.split('@')[0]} has left *${metadata.subject}*. Goodbye idiot!`,
                 mentions: [participant],
               });
             }
