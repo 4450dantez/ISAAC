@@ -223,11 +223,8 @@ async function startBot() {
 
         const settingsStore = require('./utils/settingsStore');
         if (settingsStore.get('welcomegoodbye', false)) {
-          const settingsPath = path.join(__dirname, 'config', 'groupSettings.json');
-          const groupSettings = fs.existsSync(settingsPath)
-            ? JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
-            : {};
-          const perGroup = groupSettings[event.id] || {};
+          const groupSettingsStore = require('./utils/groupSettingsStore');
+          const perGroup = groupSettingsStore.getAll(event.id);
 
           for (const entry of event.participants) {
             const participant = entry.phoneNumber || entry.id || entry;
