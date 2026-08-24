@@ -8,7 +8,7 @@ const DEV_NUMBERS = [
 function normalizeNumber(jid) {
   if (!jid) return '';
 
-  return jid
+  return String(jid)
     .split('@')[0]
     .split(':')[0]
     .replace(/\D/g, '');
@@ -17,15 +17,23 @@ function normalizeNumber(jid) {
 function isDev(msg) {
   if (!msg?.key) return false;
 
-  const senderJid =
-    msg.key.participantPn ||
-    msg.key.participantAlt ||
-    msg.key.participant ||
-    msg.key.remoteJidAlt ||
-    msg.key.remoteJid;
+  const possibleJids = [
+    msg.key.participantPn,
+    msg.key.participantAlt,
+    msg.key.participant,
+    msg.key.remoteJidAlt,
+    msg.key.remoteJid
+  ];
 
-  const number = normalizeNumber(senderJid);
-  return number && DEV_NUMBERS.includes(number);
+  for (const jid of possibleJids) {
+    const number = normalizeNumber(jid);
+
+    if (number && DEV_NUMBERS.includes(number)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 module.exports = { isDev };
