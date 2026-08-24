@@ -7,7 +7,8 @@ const DEV_NUMBERS = [
 
 function normalizeNumber(jid) {
   if (!jid) return '';
-  return jid
+
+  return String(jid)
     .split('@')[0]
     .split(':')[0]
     .replace(/\D/g, '');
@@ -16,26 +17,28 @@ function normalizeNumber(jid) {
 function isDev(msg, sock) {
   if (!msg?.key) return false;
 
-  // 1. If message was sent by the bot instance itself (fromMe)
   if (msg.key.fromMe) {
-    const botPn = sock?.user?.id ? normalizeNumber(sock.user.id) : null;
-    const botLid = sock?.user?.lid ? normalizeNumber(sock.user.lid) : null;
+    const botPn = sock?.user?.id
+      ? normalizeNumber(sock.user.id)
+      : '';
 
-    if (botPn && DEV_NUMBERS.includes(botPn)) return true;
-    if (botLid && DEV_NUMBERS.includes(botLid)) return true;
-    
-    // Fallback: if sock is missing or user is verified, allow fromMe
-    return true;
+    const botLid = sock?.user?.lid
+      ? normalizeNumber(sock.user.lid)
+      : '';
+
+    return (
+      (botPn && DEV_NUMBERS.includes(botPn)) ||
+      (botLid && DEV_NUMBERS.includes(botLid))
+    );
   }
 
-  // 2. Candidate JID fields for Group & Direct messages
   const candidates = [
-    msg.participant,             // Top-level sender in group messages
-    msg.key.participantPn,       // Phone number JID in Baileys v7
+    msg.participant,
+    msg.key.participantPn,
     msg.key.participantAlt,
-    msg.key.participant,         // Group participant JID
+    msg.key.participant,
     msg.key.remoteJidAlt,
-    msg.key.remoteJid            // DM sender JID
+    msg.key.remoteJid
   ];
 
   return candidates.some((jid) => {
