@@ -39,4 +39,4 @@ async function fetchCore() {
   console.log('✅ Commands fetched and updated successfully');
 }
 
-module.exports = { fetchCore };
+module.exports = { fetchCre };
