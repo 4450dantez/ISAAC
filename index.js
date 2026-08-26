@@ -222,30 +222,40 @@ async function startBot() {
         groupCache.set(event.id, metadata);
 
         const settingsStore = require('./utils/settingsStore');
+        const groupSettingsStore = require('./utils/groupSettingsStore');
+        const perGroup = groupSettingsStore.getAll(event.id);
+
+        if (perGroup.pdm && (event.action === 'promote' || event.action === 'demote')) {
+          const authorJid = event.author || '';
+          const authorTag = authorJid ? `@${authorJid.split('@')[0]}` : 'an Admin';
+
+          for (const entry of event.participants) {
+            const participantJid = entry.phoneNumber || entry.id || entry;
+            const participantTag = `@${participantJid.split('@')[0]}`;
+
+            const mentions = [participantJid];
+            if (authorJid) mentions.push(authorJid);
+
+            if (event.action === 'promote') {
+              await sock.sendMessage(event.id, {
+                text: `👑 ${participantTag} has been promoted to admin in *${metadata.subject}* by ${authorTag}.`,
+                mentions: mentions,
+              });
+            }
+
+            if (event.action === 'demote') {
+              await sock.sendMessage(event.id, {
+                text: `📉 ${participantTag} has been demoted from admin in *${metadata.subject}* by ${authorTag}.`,
+                mentions: mentions,
+              });
+            }
+          }
+          return;
+        }
+
         if (settingsStore.get('welcomegoodbye', false)) {
           const groupSettingsStore = require('./utils/groupSettingsStore');
           const perGroup = groupSettingsStore.getAll(event.id);
-if (perGroup.pdm && (event.action === 'promote' || event.action === 'demote')) {
-  for (const entry of event.participants) {
-    const participant = entry.phoneNumber || entry.id || entry;
-
-    if (event.action === 'promote') {
-      await sock.sendMessage(event.id, {
-        text: `👑 @${participant.split('@')[0]} has been promoted to admin in *${metadata.subject}*.`,
-        mentions: [participant],
-      });
-    }
-
-    if (event.action === 'demote') {
-      await sock.sendMessage(event.id, {
-        text: `📉 @${participant.split('@')[0]} has been demoted from admin in *${metadata.subject}*.`,
-        mentions: [participant],
-      });
-    }
-  }
-
-  return;
-}
 
           for (const entry of event.participants) {
             const participant = entry.phoneNumber || entry.id || entry;
