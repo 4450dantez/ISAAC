@@ -238,20 +238,21 @@ async function startBot() {
 
             if (event.action === 'promote') {
               await sock.sendMessage(event.id, {
-                text: `👑 ${participantTag} has been promoted to admin in *${metadata.subject}* by ${authorTag}.`,
+                text: `*👑 ${authorTag} has crowned ${participantTag}.*`,
                 mentions: mentions,
               });
             }
 
             if (event.action === 'demote') {
               await sock.sendMessage(event.id, {
-                text: `📉 ${participantTag} has been demoted from admin in *${metadata.subject}* by ${authorTag}.`,
+                text: `*📉 ${authorTag} has demoted ${participantTag}.*`,
                 mentions: mentions,
               });
             }
           }
           return;
         }
+
 
         if (settingsStore.get('welcomegoodbye', false)) {
           const groupSettingsStore = require('./utils/groupSettingsStore');
