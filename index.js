@@ -225,6 +225,27 @@ async function startBot() {
         if (settingsStore.get('welcomegoodbye', false)) {
           const groupSettingsStore = require('./utils/groupSettingsStore');
           const perGroup = groupSettingsStore.getAll(event.id);
+if (perGroup.pdm && (event.action === 'promote' || event.action === 'demote')) {
+  for (const entry of event.participants) {
+    const participant = entry.phoneNumber || entry.id || entry;
+
+    if (event.action === 'promote') {
+      await sock.sendMessage(event.id, {
+        text: `👑 @${participant.split('@')[0]} has been promoted to admin in *${metadata.subject}*.`,
+        mentions: [participant],
+      });
+    }
+
+    if (event.action === 'demote') {
+      await sock.sendMessage(event.id, {
+        text: `📉 @${participant.split('@')[0]} has been demoted from admin in *${metadata.subject}*.`,
+        mentions: [participant],
+      });
+    }
+  }
+
+  return;
+}
 
           for (const entry of event.participants) {
             const participant = entry.phoneNumber || entry.id || entry;
