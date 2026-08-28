@@ -345,12 +345,21 @@ function registerMessageHandler(sock, commands) {
             const botPrefixPattern = /^[.\/!#]/;
             if (botPrefixPattern.test(text) && !msg.key.fromMe) {
               const { isOwner } = require('../utils/isOwner');
+              const { isSudo } = require('../utils/isSudo');
               const { isBotAdmin, isSenderAdmin } = require('../utils/isAdmin');
               const senderJid = msg.key.participant || msg.key.remoteJid;
 
-              if (!isOwner(msg)) {
+              if (!isOwner(msg) && !isSudo(msg)) {
                 const metadata = await sock.groupMetadata(msg.key.remoteJid);
-                if (!isSenderAdmin(metadata, senderJid) && isBotAdmin(sock, metadata)) {
+
+                if (!isSenderAdmin(metadata, senderJid)) {
+                  if (!isBotAdmin(sock, metadata)) {
+                    await sock.sendMessage(msg.key.remoteJid, {
+                      text: '⚠ *I need admin privileges to remove suspected cheap bots.*',
+                    });
+                    continue;
+                  }
+
                   try {
                     await sock.groupParticipantsUpdate(msg.key.remoteJid, [senderJid], 'remove');
                     await sock.sendMessage(msg.key.remoteJid, {
