@@ -273,6 +273,16 @@ async function startBot() {
             }
           }
         }
+
+        if (perGroup.setgreet && event.action === 'add') {
+          for (const entry of event.participants) {
+            const participant = entry.phoneNumber || entry.id || entry;
+            await sock.sendMessage(event.id, {
+              text: `*Hi @${participant.split('@')[0]}, this is ISAAC-MD, glad to have you here*\n> powered by 𝗜𝗦𝗔𝗔𝗖`,
+              mentions: [participant],
+            });
+          }
+        }
       } catch (error) {
         logger.error(`[groupCache] Failed to update metadata for ${event?.id}: ${error.message}`);
       }
