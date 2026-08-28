@@ -15,7 +15,6 @@ function loadCommands(commandsPath) {
     try {
       const command = require(filePath);
 
-      // Support both single export and array of commands
       const commandList = Array.isArray(command) ? command : [command];
 
       for (const cmd of commandList) {
