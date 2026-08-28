@@ -26,9 +26,6 @@ function loadCommands(commandsPath) {
         commands.set(cmd.name.toLowerCase(), cmd);
         logger.info(`[commandLoader] Loaded command: ${cmd.name}`);
 
-        // Also register any declared aliases, pointing to the same
-        // command object — previously this field was set on commands but
-        // never actually read anywhere, so aliases silently never worked.
         if (Array.isArray(cmd.aliases)) {
           for (const alias of cmd.aliases) {
             if (typeof alias !== 'string' || !alias.trim()) continue;
