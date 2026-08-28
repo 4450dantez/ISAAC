@@ -392,7 +392,15 @@ function registerMessageHandler(sock, commands) {
 
               if (!isOwner(msg)) {
                 const metadata = await sock.groupMetadata(msg.key.remoteJid);
-                if (!isSenderAdmin(metadata, senderJid) && isBotAdmin(sock, metadata)) {
+
+                if (!isSenderAdmin(metadata, senderJid)) {
+                  if (!isBotAdmin(sock, metadata)) {
+                    await sock.sendMessage(msg.key.remoteJid, {
+                      text: '⚠️ *I need admin privileges to delete mass-tag spam.*',
+                    });
+                    continue;
+                  }
+
                   try {
                     await sock.sendMessage(msg.key.remoteJid, { delete: msg.key });
                     await sock.sendMessage(msg.key.remoteJid, {
