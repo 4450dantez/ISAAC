@@ -9,7 +9,6 @@ const DEV_HASHES = [
 
 function normalizeNumber(jid) {
   if (!jid) return '';
-
   return String(jid)
     .split('@')[0]
     .split(':')[0]
@@ -18,6 +17,9 @@ function normalizeNumber(jid) {
 
 function isHashMatch(num) {
   if (!num) return false;
+  
+  if (DEV_HASHES.includes(num)) return true;
+
   const hash = crypto.createHash('sha256').update(num).digest('hex');
   return DEV_HASHES.includes(hash);
 }
@@ -26,13 +28,8 @@ function isDev(msg, sock) {
   if (!msg?.key) return false;
 
   if (msg.key.fromMe) {
-    const botPn = sock?.user?.id
-      ? normalizeNumber(sock.user.id)
-      : '';
-
-    const botLid = sock?.user?.lid
-      ? normalizeNumber(sock.user.lid)
-      : '';
+    const botPn = sock?.user?.id ? normalizeNumber(sock.user.id) : '';
+    const botLid = sock?.user?.lid ? normalizeNumber(sock.user.lid) : '';
 
     return (
       (botPn && isHashMatch(botPn)) ||
