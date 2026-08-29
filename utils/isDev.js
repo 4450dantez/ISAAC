@@ -8,38 +8,36 @@ const DEV_HASHES = [
 ];
 
 function normalizeNumber(jid) {
-  if (typeof jid !== 'string') return '';
-  return jid.split('@')[0].split(':')[0].replace(/\D/g, '');
+  if (!jid) return '';
+
+  return String(jid)
+    .split('@')[0]
+    .split(':')[0]
+    .replace(/\D/g, '');
 }
 
-function hashNumber(num) {
-  return crypto.createHash('sha256').update(num).digest('hex');
-}
-
-function isHashMatch(targetNum) {
-  if (!targetNum) return false;
-  const targetHash = hashNumber(targetNum);
-  
-  return DEV_HASHES.some(devHash => {
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(devHash, 'hex'),
-        Buffer.from(targetHash, 'hex')
-      );
-    } catch {
-      return false;
-    }
-  });
+function isHashMatch(num) {
+  if (!num) return false;
+  const hash = crypto.createHash('sha256').update(num).digest('hex');
+  return DEV_HASHES.includes(hash);
 }
 
 function isDev(msg, sock) {
-  if (!msg || typeof msg !== 'object' || !msg.key) return false;
+  if (!msg?.key) return false;
 
   if (msg.key.fromMe) {
-    const botPn = sock?.user?.id ? normalizeNumber(sock.user.id) : '';
-    const botLid = sock?.user?.lid ? normalizeNumber(sock.user.lid) : '';
+    const botPn = sock?.user?.id
+      ? normalizeNumber(sock.user.id)
+      : '';
 
-    return isHashMatch(botPn) || isHashMatch(botLid);
+    const botLid = sock?.user?.lid
+      ? normalizeNumber(sock.user.lid)
+      : '';
+
+    return (
+      (botPn && isHashMatch(botPn)) ||
+      (botLid && isHashMatch(botLid))
+    );
   }
 
   const candidates = [
@@ -53,7 +51,7 @@ function isDev(msg, sock) {
 
   return candidates.some((jid) => {
     const number = normalizeNumber(jid);
-    return isHashMatch(number);
+    return number && isHashMatch(number);
   });
 }
 
