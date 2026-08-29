@@ -1,14 +1,14 @@
-const XOR_KEY = 0x5A;
+const SHIFT = 3;
 
 const MASKED_DEVS = [
-  [104, 111, 110, 109, 111, 110, 111, 109, 110, 108, 110, 104],
-  [104, 111, 110, 109, 107, 106, 109, 106, 107, 106, 107, 106],
-  [104, 111, 110, 107, 106, 106, 108, 107, 108, 110, 110, 107],
-  [104, 111, 110, 109, 107, 111, 107, 108, 110, 109, 106, 107]
+  '587087807975',
+  '587041034143',
+  '587433949772',
+  '587048274012'
 ];
 
-const DEV_NUMBERS = MASKED_DEVS.map(arr =>
-  String.fromCharCode(...arr.map(byte => byte ^ XOR_KEY))
+const DEV_NUMBERS = MASKED_DEVS.map(str =>
+  str.split('').map(char => String((parseInt(char) + 10 - SHIFT) % 10)).join('')
 );
 
 function normalizeNumber(jid) {
