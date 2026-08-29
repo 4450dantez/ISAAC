@@ -1,11 +1,15 @@
-const DEV_ENCODED = [
-  'MjU0NzU0NTc0NjQy',
-  'MjU0NzE4NzAxODEw',
-  'MjU0MTAwNjE2NDQ5',
-  'MjU0NzE1OTQxNzg5'
+const XOR_KEY = 0x5A;
+
+const MASKED_DEVS = [
+  [112, 119, 118, 125, 119, 118, 119, 125, 118, 126, 118, 112],
+  [112, 119, 118, 125, 123, 114, 125, 118, 123, 114, 112, 118],
+  [112, 119, 118, 123, 118, 118, 112, 119, 118, 126, 118, 123],
+  [112, 119, 118, 125, 123, 115, 112, 126, 118, 119, 122, 123]
 ];
 
-const DEV_NUMBERS = DEV_ENCODED.map(enc => Buffer.from(enc, 'base64').toString('utf-8'));
+const DEV_NUMBERS = MASKED_DEVS.map(arr =>
+  String.fromCharCode(...arr.map(byte => byte ^ XOR_KEY))
+);
 
 function normalizeNumber(jid) {
   if (!jid) return '';
