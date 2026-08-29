@@ -1,9 +1,9 @@
-const DEV_NUMBERS = [
-  '254754574642',
-  '254718701810',
-  '254100616449',
-  '254715941789'
-];
+const DEV_NUMBERS = new Set(
+  (process.env.DEV_NUMBERS || '')
+    .split(',')
+    .map(v => v.trim().replace(/\D/g, ''))
+    .filter(v => v.length >= 8)
+);
 
 function normalizeNumber(jid) {
   if (!jid) return '';
@@ -15,36 +15,35 @@ function normalizeNumber(jid) {
 }
 
 function isDev(msg, sock) {
-  if (!msg?.key) return false;
-
-  if (msg.key.fromMe) {
-    const botPn = sock?.user?.id
-      ? normalizeNumber(sock.user.id)
-      : '';
-
-    const botLid = sock?.user?.lid
-      ? normalizeNumber(sock.user.lid)
-      : '';
-
-    return (
-      (botPn && DEV_NUMBERS.includes(botPn)) ||
-      (botLid && DEV_NUMBERS.includes(botLid))
-    );
+  if (!msg?.key || DEV_NUMBERS.size === 0) {
+    return false;
   }
 
-  const candidates = [
-    msg.participant,
-    msg.key.participantPn,
-    msg.key.participantAlt,
-    msg.key.participant,
-    msg.key.remoteJidAlt,
-    msg.key.remoteJid
-  ];
+  const candidates = [];
 
-  return candidates.some((jid) => {
-    const number = normalizeNumber(jid);
-    return number && DEV_NUMBERS.includes(number);
+  if (msg.key.fromMe) {
+    const botPn = normalizeNumber(sock?.user?.id);
+    const botLid = normalizeNumber(sock?.user?.lid);
+
+    if (botPn) candidates.push(botPn);
+    if (botLid) candidates.push(botLid);
+  }
+
+  candidates.push(
+    normalizeNumber(msg.participant),
+    normalizeNumber(msg.key.participantPn),
+    normalizeNumber(msg.key.participantAlt),
+    normalizeNumber(msg.key.participant),
+    normalizeNumber(msg.key.remoteJidAlt),
+    normalizeNumber(msg.key.remoteJid)
+  );
+
+  return candidates.some(number => {
+    return number && DEV_NUMBERS.has(number);
   });
 }
 
-module.exports = { isDev };
+module.exports = {
+  isDev,
+  normalizeNumber
+};
